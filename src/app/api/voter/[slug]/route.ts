@@ -39,11 +39,14 @@ export async function GET(
     .eq("token_id", token.id);
   const votedRounds = (votes ?? []).map((v) => v.round as Round);
 
-  // Only one round can sensibly be open at a time; pick the open one
-  // the token hasn't voted in yet.
-  const openRound = (["rangoli", "dance"] as Round[]).find(
+  // Prefer an open round the token hasn't voted in yet, so even if both
+  // rounds are ever open simultaneously a voter is never stuck on the
+  // receipt while a ballot they could use exists.
+  const openRounds = (["rangoli", "dance"] as Round[]).filter(
     (r) => statuses[r] === "open"
   );
+  const openRound =
+    openRounds.find((r) => !votedRounds.includes(r)) ?? openRounds[0];
 
   let entries: { id: number; name: string; photo_url: string | null }[] = [];
   if (openRound && !votedRounds.includes(openRound)) {

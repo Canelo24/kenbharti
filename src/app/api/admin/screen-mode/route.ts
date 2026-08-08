@@ -19,5 +19,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bad mode" }, { status: 400 });
   }
   await setSetting("screen_mode", body.mode);
+  // Leaving raffle mode clears the last draw so re-entering raffle mode
+  // later never auto-replays an old prize's spin.
+  if (body.mode !== "raffle") {
+    await setSetting("raffle_current", "");
+  }
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { db } from "./db";
+import { db, fetchAllRows } from "./db";
 import { getSettings, setSetting } from "./settings";
 import { inRanges, parseRanges } from "./ranges";
 
@@ -31,11 +31,9 @@ export async function computePool(
   let candidates = tokens ?? [];
 
   if (poolMode === "voted") {
-    const { data: votes, error: vErr } = await db()
-      .from("votes")
-      .select("token_id");
-    if (vErr) throw new Error(vErr.message);
-    const votedIds = new Set((votes ?? []).map((v) => v.token_id as string));
+    // Paginated: votes can exceed Supabase's 1000-row response cap
+    const votes = await fetchAllRows<{ token_id: string }>("votes", "token_id");
+    const votedIds = new Set(votes.map((v) => v.token_id));
     candidates = candidates.filter((t) => votedIds.has(t.id));
   } else {
     candidates = candidates.filter((t) => inRanges(t.display_code, ranges));
@@ -56,14 +54,23 @@ export async function computePool(
 
 export async function drawPrize(
   prizeId: number,
-  excludeTokenIds: Set<string> = new Set()
+  excludeTokenIds: Set<string> = new Set(),
+  expectStatus: "pending" | "drawn" = "pending"
 ): Promise<{ ok: true; winner: PoolToken } | { ok: false; error: string }> {
   const { data: prize, error: pErr } = await db()
     .from("prizes")
-    .select("id, name")
+    .select("id, name, status")
     .eq("id", prizeId)
     .maybeSingle();
   if (pErr || !prize) return { ok: false, error: "Prize not found" };
+  // Guards against a double-tapped Draw or two admin tabs racing:
+  // a prize can only be drawn from the status the caller expects.
+  if (prize.status !== expectStatus) {
+    return {
+      ok: false,
+      error: `This prize is already '${prize.status}' — refresh and check before drawing again`,
+    };
+  }
 
   const pool = await computePool(excludeTokenIds);
   if (pool.length === 0) {
@@ -80,7 +87,16 @@ export async function drawPrize(
     .single();
   if (dErr || !draw) return { ok: false, error: "Could not record the draw" };
 
-  await db().from("prizes").update({ status: "drawn" }).eq("id", prizeId);
+  const { error: uErr } = await db()
+    .from("prizes")
+    .update({ status: "drawn" })
+    .eq("id", prizeId);
+  if (uErr) {
+    return {
+      ok: false,
+      error: `Winner recorded but prize status update failed: ${uErr.message}`,
+    };
+  }
 
   // Tell the projector what to spin to
   await setSetting(
@@ -126,5 +142,6 @@ export async function redrawPrize(prizeId: number) {
     .eq("status", "redrawn");
   for (const d of past ?? []) excluded.add(d.token_id as string);
 
-  return drawPrize(prizeId, excluded);
+  // A redraw happens on a prize that is already 'drawn'
+  return drawPrize(prizeId, excluded, "drawn");
 }

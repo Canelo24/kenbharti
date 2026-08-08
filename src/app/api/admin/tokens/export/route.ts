@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const { data: tokens, error } = await db()
     .from("tokens")
     .select("display_code, slug, is_reserve")
+    .not("display_code", "like", "KB-TEST%") // ignore health-check probes
     .order("display_code");
   if (error || !tokens || tokens.length === 0) {
     return NextResponse.json(

@@ -32,6 +32,7 @@ export default function VoterClient({ slug }: { slug: string }) {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [justVoted, setJustVoted] = useState(false);
+  const [wasAlready, setWasAlready] = useState(false);
   const [voteError, setVoteError] = useState("");
   const stateRef = useRef<VoterState | null>(null);
   stateRef.current = state;
@@ -46,6 +47,7 @@ export default function VoterClient({ slug }: { slug: string }) {
       const data: VoterState = await res.json();
       setState(data);
       setSelected(null);
+      setVoteError("");
       setFailed(false);
     } catch {
       setFailed(true);
@@ -62,11 +64,18 @@ export default function VoterClient({ slug }: { slug: string }) {
   useEffect(() => {
     const id = setInterval(async () => {
       const s = stateRef.current;
-      if (!s || !s.valid) return;
+      if (!s || !s.valid) {
+        // Initial load failed or the code was reported invalid — keep
+        // retrying the full fetch so "retrying…" is actually true and a
+        // help-desk reactivation is picked up automatically.
+        refresh();
+        return;
+      }
       const votedAll =
         s.voted && s.voted.includes("rangoli") && s.voted.includes("dance");
       if (votedAll) return;
-      if (s.open_round && !s.voted?.includes(s.open_round)) return;
+      // Note: polling continues even while the ballot is on screen, so a
+      // round closed/reopened by the admin always reaches this phone.
       try {
         const res = await fetch("/api/state", { cache: "no-store" });
         const fresh = await res.json();
@@ -99,6 +108,7 @@ export default function VoterClient({ slug }: { slug: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
+        setWasAlready(!!data.already);
         setJustVoted(true);
         setConfirming(false);
         setState((s) =>
@@ -113,19 +123,29 @@ export default function VoterClient({ slug }: { slug: string }) {
       } else if (res.status === 409) {
         // Round closed while they were deciding — resync quietly.
         setConfirming(false);
-        setVoteError(data.error ?? "Voting has just closed for this round.");
+        const msg = data.error ?? "Voting has just closed for this round.";
         await refresh();
+        setVoteError(msg);
       } else {
-        // NEVER fail silently: show exactly what went wrong, keep the ballot.
+        // NEVER fail silently: show exactly what went wrong.
         setConfirming(false);
-        setVoteError(
-          data.error ?? `Something went wrong (code ${res.status}). Your vote was NOT saved — please try again.`
-        );
+        const msg =
+          data.error ??
+          `Something went wrong (code ${res.status}). Your vote was NOT saved — please try again.`;
+        if (res.status === 400) {
+          // Ballot may be stale (entry removed mid-round) — resync it.
+          await refresh();
+        }
+        setVoteError(msg);
       }
     } catch {
+      // The request may have reached the server even though the response
+      // was lost — never claim the vote definitely failed. Resync: if it
+      // went through, the receipt appears; if not, they can confirm again.
       setConfirming(false);
+      await refresh();
       setVoteError(
-        "Network problem — your vote was NOT saved. Check your signal and try again."
+        "Network problem — we couldn't confirm your vote. If it went through, this page shows your receipt; otherwise tap Confirm again for the SAME entry."
       );
     } finally {
       setSubmitting(false);
@@ -315,6 +335,27 @@ export default function VoterClient({ slug }: { slug: string }) {
 
   // ---------- RECEIPT ----------
   if ((openRound && voted.includes(openRound)) || justVoted) {
+    if (wasAlready) {
+      // The DB rejected a second submission — honest copy, not a fresh success.
+      return (
+        <Shell logo={logo} code={state.display_code}>
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-b from-amber-400 to-amber-600 text-5xl shadow-2xl shadow-amber-500/40">
+            ✓
+          </div>
+          <h1 className="mt-5 text-3xl font-extrabold">
+            This card had already voted
+          </h1>
+          <p className="mt-2 text-sm text-white/60">
+            Only the first vote per card counts — that one is safely recorded.
+          </p>
+          <div className="mt-5 rounded-2xl border border-brand-gold/30 bg-brand-gold/10 px-6 py-4">
+            <p className="text-lg font-bold text-brand-gold">
+              🎁 You&apos;re in the raffle draw!
+            </p>
+          </div>
+        </Shell>
+      );
+    }
     return (
       <Shell logo={logo} code={state.display_code}>
         <div className="flex h-24 w-24 animate-[kb-pop_0.5s_ease-out] items-center justify-center rounded-full bg-gradient-to-b from-green-400 to-green-600 text-5xl shadow-2xl shadow-green-500/40">

@@ -95,41 +95,57 @@ export async function GET() {
   }
 
   // 4. One-vote-per-round protection — proven live with a real duplicate
-  //    insert against a throwaway token, then cleaned up.
+  //    insert against a throwaway per-run token, fully removed afterwards.
+  //    A unique slug per run means two simultaneous checks can't collide,
+  //    and deleting the token keeps it out of counts, exports and raffles.
   try {
-    const probeSlug = `__healthcheck__`;
+    // Self-heal: remove any probe tokens a crashed earlier check left behind
+    const { data: strays } = await db()
+      .from("tokens")
+      .select("id")
+      .like("display_code", "KB-TEST%");
+    for (const s of strays ?? []) {
+      await db().from("votes").delete().eq("token_id", s.id);
+      await db().from("tokens").delete().eq("id", s.id);
+    }
+
     const { data: entry } = await db()
       .from("entries")
       .select("id, round")
       .limit(1)
       .maybeSingle();
     if (entry) {
+      const runId = crypto.randomUUID().slice(0, 8);
       const { data: probe } = await db()
         .from("tokens")
-        .upsert(
-          { slug: probeSlug, display_code: "KB-TEST", active: false },
-          { onConflict: "slug" }
-        )
+        .insert({
+          slug: `__healthcheck__${runId}`,
+          display_code: `KB-TEST-${runId}`,
+          active: false,
+        })
         .select("id")
         .single();
       if (probe) {
-        await db().from("votes").delete().eq("token_id", probe.id);
-        const first = await db()
-          .from("votes")
-          .insert({ token_id: probe.id, round: entry.round, entry_id: entry.id });
-        const second = await db()
-          .from("votes")
-          .insert({ token_id: probe.id, round: entry.round, entry_id: entry.id });
-        const guarded = !first.error && second.error?.code === "23505";
-        await db().from("votes").delete().eq("token_id", probe.id);
-        checks.push({
-          name: "Double-vote protection",
-          ok: guarded,
-          detail: guarded
-            ? "verified: second vote was rejected by the database"
-            : `NOT WORKING (first: ${first.error?.message ?? "ok"}, second: ${second.error?.code ?? "accepted"})`,
-          fix: guarded ? undefined : REPAIR_FIX,
-        });
+        try {
+          const first = await db()
+            .from("votes")
+            .insert({ token_id: probe.id, round: entry.round, entry_id: entry.id });
+          const second = await db()
+            .from("votes")
+            .insert({ token_id: probe.id, round: entry.round, entry_id: entry.id });
+          const guarded = !first.error && second.error?.code === "23505";
+          checks.push({
+            name: "Double-vote protection",
+            ok: guarded,
+            detail: guarded
+              ? "verified: second vote was rejected by the database"
+              : `NOT WORKING (first: ${first.error?.message ?? "ok"}, second: ${second.error?.code ?? "accepted"})`,
+            fix: guarded ? undefined : REPAIR_FIX,
+          });
+        } finally {
+          await db().from("votes").delete().eq("token_id", probe.id);
+          await db().from("tokens").delete().eq("id", probe.id);
+        }
       }
     }
   } catch (e) {

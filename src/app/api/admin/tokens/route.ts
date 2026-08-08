@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
 
   const { count } = await db()
     .from("tokens")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .not("display_code", "like", "KB-TEST%"); // ignore health-check probes
   return NextResponse.json({ tokens: data ?? [], total: count ?? 0 });
 }
 
@@ -53,7 +54,8 @@ export async function POST(req: NextRequest) {
   if (body.action === "generate") {
     const { count } = await db()
       .from("tokens")
-      .select("id", { count: "exact", head: true });
+      .select("id", { count: "exact", head: true })
+      .not("display_code", "like", "KB-TEST%"); // ignore health-check probes
     if ((count ?? 0) > 0) {
       return NextResponse.json(
         { error: `Tokens already exist (${count}). Generation only runs once.` },

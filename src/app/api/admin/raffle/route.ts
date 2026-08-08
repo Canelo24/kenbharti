@@ -76,15 +76,21 @@ export async function POST(req: NextRequest) {
       if (!Number.isInteger(body.prize_id)) {
         return NextResponse.json({ error: "Bad prize" }, { status: 400 });
       }
-      await db()
+      const { error: dErr } = await db()
         .from("draws")
         .update({ status: "claimed" })
         .eq("prize_id", body.prize_id as number)
         .eq("status", "pending_claim");
-      await db()
+      if (dErr) {
+        return NextResponse.json({ error: dErr.message }, { status: 500 });
+      }
+      const { error: pUpdErr } = await db()
         .from("prizes")
         .update({ status: "claimed" })
         .eq("id", body.prize_id as number);
+      if (pUpdErr) {
+        return NextResponse.json({ error: pUpdErr.message }, { status: 500 });
+      }
       return NextResponse.json({ ok: true });
     }
 

@@ -212,7 +212,15 @@ export default function AdminClient() {
         </div>
       )}
 
+      {loadError && (
+        <div className="mb-4 rounded-xl border border-red-500/50 bg-red-500/15 p-3 text-center text-sm font-semibold text-red-200">
+          ⚠️ {loadError} — the numbers below are from the last successful
+          update and may be out of date. Retrying automatically…
+        </div>
+      )}
+
       <div className="space-y-5">
+        <NextStepBanner ov={ov} />
         <SystemCheckSection />
         <RoundsSection ov={ov} post={post} busy={busy} showToast={showToast} />
         <ScreenSection ov={ov} post={post} busy={busy} />
@@ -261,6 +269,52 @@ function SectionTitle({
         {title}
       </h2>
       {sub && <p className="mt-1 text-xs text-white/50">{sub}</p>}
+    </div>
+  );
+}
+
+// ---------------- Next step (run-of-show guide) ----------------
+
+function nextStep(ov: Overview): { icon: string; text: string } {
+  const s = ov.settings;
+  const mode = s["screen_mode"] ?? "idle";
+  const r1 = s["rangoli_status"] ?? "locked";
+  const r2 = s["dance_status"] ?? "locked";
+  const prizesLeft = ov.prizes.filter((p) => p.status !== "claimed").length;
+
+  if (r1 === "locked")
+    return { icon: "1️⃣", text: "When the MC announces Rangoli voting: Rounds → Rangoli → Open" };
+  if (r1 === "open" && mode !== "live_r1")
+    return { icon: "📺", text: "Rangoli is open — now put the projector on 'Live count · Rangoli'" };
+  if (r1 === "open")
+    return { icon: "⏳", text: "Rangoli voting is running. When the MC says time's up: Rounds → Rangoli → Close" };
+  if (r1 === "closed")
+    return { icon: "🏆", text: "Rangoli is closed. When the MC is ready: Rounds → Rangoli → Reveal (projector switches automatically)" };
+  if (r2 === "locked")
+    return { icon: "2️⃣", text: "When the MC announces Dance voting: Rounds → Dance → Open" };
+  if (r2 === "open" && mode !== "live_r2")
+    return { icon: "📺", text: "Dance is open — now put the projector on 'Live count · Dance'" };
+  if (r2 === "open")
+    return { icon: "⏳", text: "Dance voting is running. When the MC says time's up: Rounds → Dance → Close" };
+  if (r2 === "closed")
+    return { icon: "🏆", text: "Dance is closed. When the MC is ready: Rounds → Dance → Reveal" };
+  if (mode !== "raffle" && prizesLeft > 0)
+    return { icon: "🎁", text: "Both rounds done! Put the projector on 'Raffle', then Draw each prize — hampers first, flights last" };
+  if (prizesLeft > 0)
+    return { icon: "🎲", text: `Raffle time — ${prizesLeft} prize${prizesLeft === 1 ? "" : "s"} left. Press Draw on the next one when the MC is ready` };
+  return { icon: "🎉", text: "Everything is done — great show! 🙏" };
+}
+
+function NextStepBanner({ ov }: { ov: Overview }) {
+  const step = nextStep(ov);
+  return (
+    <div className="rounded-2xl border border-brand-gold/40 bg-gradient-to-r from-brand-gold/15 to-brand-saffron/5 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand-gold/80">
+        Next step
+      </p>
+      <p className="mt-1 font-semibold">
+        {step.icon} {step.text}
+      </p>
     </div>
   );
 }
@@ -397,9 +451,15 @@ function RoundsSection({
       <div className="space-y-4">
         {(["rangoli", "dance"] as Round[]).map((round) => {
           const status = ov.settings[`${round}_status`] ?? "locked";
-          const tallies = ov.tallies[round] ?? [];
-          const total = tallies.reduce((s, t) => s + t.votes, 0);
-          const maxVotes = Math.max(1, ...tallies.map((t) => t.votes));
+          // Hidden (inactive) entries keep their votes in the DB but are
+          // excluded from what the operator sees, so totals stay consistent
+          // with the visible bars.
+          const activeTallies = (ov.tallies[round] ?? []).filter((t) => {
+            const entry = ov.entries.find((e) => e.id === t.entry_id);
+            return entry?.active;
+          });
+          const total = activeTallies.reduce((s, t) => s + t.votes, 0);
+          const maxVotes = Math.max(1, ...activeTallies.map((t) => t.votes));
           return (
             <div
               key={round}
@@ -468,9 +528,8 @@ function RoundsSection({
 
               {/* Live tally — only visible here, never on the projector */}
               <div className="mt-4 space-y-2">
-                {tallies.map((t) => {
-                  const entry = ov.entries.find((e) => e.id === t.entry_id);
-                  if (!entry || !entry.active) return null;
+                {activeTallies.map((t) => {
+                  const entry = ov.entries.find((e) => e.id === t.entry_id)!;
                   const leading = t.votes === maxVotes && total > 0;
                   return (
                     <div key={t.entry_id} className="flex items-center gap-2 text-sm">
@@ -681,20 +740,22 @@ function EntriesSection({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const editFileRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
-  async function sendForm(fd: FormData): Promise<boolean> {
+  async function sendForm(
+    fd: FormData
+  ): Promise<{ deactivated?: boolean } | null> {
     setSaving(true);
     try {
       const res = await fetch("/api/admin/entries", { method: "POST", body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         showToast(`⚠️ ${data.error ?? "Failed"}`);
-        return false;
+        return null;
       }
       await refresh();
-      return true;
+      return data;
     } catch {
       showToast("⚠️ Network problem");
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -819,7 +880,14 @@ function EntriesSection({
                 const fd = new FormData();
                 fd.set("action", "delete");
                 fd.set("id", String(e.id));
-                await sendForm(fd);
+                const data = await sendForm(fd);
+                if (data) {
+                  showToast(
+                    data.deactivated
+                      ? `⚠️ "${e.name}" already has votes — hidden from the ballot instead of deleted (votes are kept)`
+                      : `✅ "${e.name}" removed`
+                  );
+                }
               }}
             >
               ✕
@@ -1033,11 +1101,12 @@ function RaffleSection({
                     className="btn-primary flex-1 py-2 text-sm"
                     disabled={busy}
                     onClick={() => {
-                      if (
-                        confirm(
-                          `Draw "${p.name}" now? The projector (in Raffle mode) will spin and land on the winner.`
-                        )
-                      ) {
+                      const screenReady =
+                        ov.settings["screen_mode"] === "raffle";
+                      const msg = screenReady
+                        ? `Draw "${p.name}" now? The projector will spin and land on the winner.`
+                        : `⚠️ The projector is NOT in Raffle mode — the hall won't see the spin!\n\nPress '🎁 Raffle' in the Projector section first, or draw anyway?`;
+                      if (confirm(msg)) {
                         post("/api/admin/raffle", { action: "draw", prize_id: p.id });
                       }
                     }}

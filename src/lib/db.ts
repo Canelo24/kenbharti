@@ -19,3 +19,25 @@ export function db(): SupabaseClient {
   }
   return client;
 }
+
+// Supabase caps responses at 1000 rows. With 800 voters x 2 rounds the
+// votes table can hold 1600 rows, so every full-table read MUST paginate
+// or tallies/turnout/raffle pools silently truncate.
+export async function fetchAllRows<T>(
+  table: string,
+  columns: string
+): Promise<T[]> {
+  const PAGE = 1000;
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db()
+      .from(table)
+      .select(columns)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    all.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE) break;
+  }
+  return all;
+}

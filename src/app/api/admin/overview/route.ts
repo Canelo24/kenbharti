@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, fetchAllRows } from "@/lib/db";
 import { getSettings, Round, ROUNDS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,12 @@ async function buildOverview() {
     .from("entries")
     .select("id, round, name, photo_url, sort, active")
     .order("sort");
-  const { data: votes } = await db().from("votes").select("round, entry_id, token_id");
+  // Paginated: the votes table can exceed Supabase's 1000-row response cap
+  const votes = await fetchAllRows<{
+    round: Round;
+    entry_id: number;
+    token_id: string;
+  }>("votes", "round, entry_id, token_id");
 
   const tallies: Record<Round, { entry_id: number; votes: number }[]> = {
     rangoli: [],

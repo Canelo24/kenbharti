@@ -19,6 +19,7 @@ type Raffle = {
 type ScreenData = {
   mode: string;
   round?: string;
+  round_status?: string;
   count?: number;
   results?: Result[] | null;
   raffle?: Raffle | null;
@@ -48,6 +49,8 @@ export default function ScreenClient() {
     try {
       const res = await fetch(`/api/screen?t=${Date.now()}`, {
         cache: "no-store",
+        // Abort black-holed requests so the pill can actually go red
+        signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
         setData(await res.json());
@@ -64,7 +67,17 @@ export default function ScreenClient() {
   useEffect(() => {
     poll();
     const id = setInterval(poll, 2500);
-    return () => clearInterval(id);
+    // Independent watchdog: if no successful poll for 10s, show red —
+    // even if a request somehow never settles.
+    const watchdog = setInterval(() => {
+      if (lastOkAt.current && Date.now() - lastOkAt.current > 10_000) {
+        setConnected(false);
+      }
+    }, 2000);
+    return () => {
+      clearInterval(id);
+      clearInterval(watchdog);
+    };
   }, [poll]);
 
   return (
@@ -127,6 +140,7 @@ export default function ScreenClient() {
             key={data.mode}
             round={data.round ?? ""}
             count={data.count ?? 0}
+            roundStatus={data.round_status ?? "open"}
           />
         )}
         {(data.mode === "results_r1" || data.mode === "results_r2") && (
@@ -181,9 +195,18 @@ function IdleView({ logo }: { logo?: string | null }) {
 
 // ---------------- Live counter ----------------
 
-function LiveView({ round, count }: { round: string; count: number }) {
+function LiveView({
+  round,
+  count,
+  roundStatus,
+}: {
+  round: string;
+  count: number;
+  roundStatus: string;
+}) {
   const [display, setDisplay] = useState(count);
   const target = useRef(count);
+  const isOpen = roundStatus === "open";
 
   useEffect(() => {
     target.current = count;
@@ -204,12 +227,20 @@ function LiveView({ round, count }: { round: string; count: number }) {
       exit={{ opacity: 0 }}
       className="flex flex-col items-center gap-6"
     >
-      <div className="rounded-full border border-green-400/40 bg-green-500/10 px-8 py-2">
-        <p className="flex items-center gap-3 text-2xl font-bold text-green-300">
-          <span className="inline-block h-3 w-3 animate-ping rounded-full bg-green-400" />
-          VOTING OPEN
-        </p>
-      </div>
+      {isOpen ? (
+        <div className="rounded-full border border-green-400/40 bg-green-500/10 px-8 py-2">
+          <p className="flex items-center gap-3 text-2xl font-bold text-green-300">
+            <span className="inline-block h-3 w-3 animate-ping rounded-full bg-green-400" />
+            VOTING OPEN
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-full border border-yellow-400/40 bg-yellow-500/10 px-8 py-2">
+          <p className="text-2xl font-bold text-yellow-300">
+            🔒 VOTING CLOSED — final count
+          </p>
+        </div>
+      )}
       <h1 className="text-6xl font-black text-brand-saffron md:text-7xl">
         {ROUND_ICON[round]} {ROUND_TITLE[round] ?? "Voting"}
       </h1>
@@ -221,9 +252,15 @@ function LiveView({ round, count }: { round: string; count: number }) {
           {display}
         </div>
       </div>
-      <p className="kb-pulse text-3xl font-semibold text-brand-gold">
-        📱 Scan your card &amp; vote now!
-      </p>
+      {isOpen ? (
+        <p className="kb-pulse text-3xl font-semibold text-brand-gold">
+          📱 Scan your card &amp; vote now!
+        </p>
+      ) : (
+        <p className="text-3xl font-semibold text-white/50">
+          Results coming up shortly…
+        </p>
+      )}
     </motion.div>
   );
 }
@@ -239,18 +276,25 @@ function ResultsView({
 }) {
   const confettiFired = useRef(false);
   const sorted = results ? [...results].sort((a, b) => b.votes - a.votes) : [];
-  const max = sorted.length > 0 ? Math.max(1, sorted[0].votes) : 1;
-  const winnerId = sorted.length > 0 ? sorted[0].id : null;
+  // Handle ties: every entry sharing the top (non-zero) count is a winner
+  const topVotes = sorted.length > 0 ? sorted[0].votes : 0;
+  const winners = topVotes > 0 ? sorted.filter((r) => r.votes === topVotes) : [];
+  const isTie = winners.length > 1;
+  const winnerIds = new Set(winners.map((r) => r.id));
+  const max = Math.max(1, topVotes);
   const display = results ? [...results].sort((a, b) => a.id - b.id) : [];
   const revealSeconds = display.length * 0.9;
 
+  // Depend on stable primitives, not the array reference — otherwise every
+  // 2.5s poll would cancel the pending confetti timer before it fires.
+  const hasResults = !!results && results.length > 0;
   useEffect(() => {
-    if (results && results.length > 0 && !confettiFired.current) {
+    if (hasResults && !confettiFired.current) {
       confettiFired.current = true;
       const t = setTimeout(() => fireConfetti(), (revealSeconds + 0.4) * 1000);
       return () => clearTimeout(t);
     }
-  }, [results, revealSeconds]);
+  }, [hasResults, revealSeconds]);
 
   if (!results) {
     return (
@@ -280,7 +324,7 @@ function ResultsView({
       </h1>
       <div className="space-y-6">
         {display.map((r, i) => {
-          const isWinner = r.id === winnerId;
+          const isWinner = winnerIds.has(r.id);
           return (
             <div key={r.id} className="flex items-center gap-5 text-left">
               <span
@@ -315,15 +359,16 @@ function ResultsView({
           );
         })}
       </div>
-      {winnerId !== null && (
+      {winners.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 40, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: revealSeconds + 0.3, type: "spring", bounce: 0.4 }}
           className="mt-14 inline-block rounded-3xl border-2 border-brand-gold/60 bg-gradient-to-r from-brand-gold/20 to-brand-saffron/10 px-16 py-6"
         >
-          <p className="text-7xl font-black text-brand-gold">
-            🏆 {sorted[0].name} 🏆
+          <p className="text-6xl font-black text-brand-gold md:text-7xl">
+            🏆 {isTie ? "It's a tie! " : ""}
+            {winners.map((w) => w.name).join(" & ")} 🏆
           </p>
         </motion.div>
       )}
@@ -362,7 +407,11 @@ function RaffleView({ raffle }: { raffle: Raffle | null }) {
     };
     tick();
     return () => clearTimeout(timer);
-  }, [raffle]);
+    // Depend on draw_id only: each poll delivers a NEW raffle object with
+    // the same contents, and re-running this effect would clearTimeout the
+    // in-flight spin and freeze it on a random non-winner code.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raffle?.draw_id]);
 
   return (
     <motion.div

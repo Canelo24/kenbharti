@@ -37,9 +37,12 @@ export async function GET() {
       .eq("round", round);
     payload.count = count ?? 0;
     payload.round = round;
+    // Lets the screen switch its badge to "VOTING CLOSED — counter frozen"
+    payload.round_status = s[`${round}_status`] ?? "locked";
   }
 
   if (mode === "results_r1" || mode === "results_r2") {
+    payload.round = round;
     const status = s[`${round}_status`];
     if (status === "revealed") {
       const { data: entries } = await db()
@@ -56,7 +59,6 @@ export async function GET() {
       for (const v of votes ?? []) {
         counts.set(v.entry_id, (counts.get(v.entry_id) ?? 0) + 1);
       }
-      payload.round = round;
       payload.results = (entries ?? []).map((e) => ({
         id: e.id,
         name: e.name,
