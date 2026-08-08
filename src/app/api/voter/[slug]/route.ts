@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getRoundStatuses, getSettings, Round } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Everything the voter page needs in one call:
 // token validity, round statuses, which rounds this token voted in,

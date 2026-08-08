@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getRoundStatuses, isRound } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Casts a vote. Idempotent: a double-tap or two-device race hits the
 // UNIQUE (token_id, round) constraint and returns the calm

@@ -4,6 +4,8 @@ import { dbFingerprint } from "@/lib/fingerprint";
 import { getSettings, Round } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Data feed for the projector (/screen). Public but safe:
 //  - while voting is open it exposes ONLY the total count, never per-option

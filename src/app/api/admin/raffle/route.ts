@@ -5,6 +5,8 @@ import { setSetting } from "@/lib/settings";
 import { computePool, drawPrize, redrawPrize } from "@/lib/raffle";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // POST { action, ... }
 //   set_pool     { pool: 'range' | 'voted' }

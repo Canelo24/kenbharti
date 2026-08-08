@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { makeTokenRecords } from "@/lib/tokengen.mjs";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 export const maxDuration = 60;
 
 // GET ?q=0347  -> search tokens by display code (partial ok)

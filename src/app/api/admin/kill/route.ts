@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { getSettings, setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Kill switch: CLOSE ALL VOTING NOW. Any round that is open -> closed.
 export async function POST() {

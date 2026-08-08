@@ -15,6 +15,16 @@ export function db(): SupabaseClient {
     }
     client = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        // CRITICAL: Next.js patches fetch() on Vercel and CACHES GET
+        // requests made inside route handlers — including supabase-js
+        // reads. That served minutes-old database answers (stale screen
+        // mode, stale "hasn't voted yet", stale tallies) while writes
+        // went through instantly. Forcing no-store on every Supabase
+        // request guarantees every read hits the live database.
+        fetch: (input, init) =>
+          fetch(input, { ...init, cache: "no-store" }),
+      },
     });
   }
   return client;

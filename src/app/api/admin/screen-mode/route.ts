@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { isScreenMode, setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // The projector never changes unless one of these buttons is pressed.
 export async function POST(req: NextRequest) {

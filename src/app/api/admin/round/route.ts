@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { getSettings, isRound, setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Round state machine: locked -> open -> closed -> revealed.
 // Admin moves forward only; "reopen" exists but the UI shows a

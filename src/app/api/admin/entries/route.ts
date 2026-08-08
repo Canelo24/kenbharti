@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { isRound } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 export const maxDuration = 30;
 
 // Compress any uploaded photo to WebP <= 60KB (spec §0.4).

@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { dbFingerprint, expectedHost } from "@/lib/fingerprint";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 type Check = {
   name: string;

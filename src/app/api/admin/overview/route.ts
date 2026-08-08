@@ -5,6 +5,8 @@ import { dbFingerprint } from "@/lib/fingerprint";
 import { getSettings, Round, ROUNDS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Everything the admin dashboard shows, in one call (polled every 5s).
 export async function GET() {

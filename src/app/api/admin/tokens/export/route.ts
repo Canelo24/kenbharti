@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { buildCsv, buildQrPdf } from "@/lib/tokengen.mjs";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 export const maxDuration = 60;
 
 function baseUrl(req: NextRequest): string {

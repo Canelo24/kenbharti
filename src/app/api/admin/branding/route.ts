@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 export const maxDuration = 30;
 
 // Upload the event logo once from the admin panel; it then shows on the

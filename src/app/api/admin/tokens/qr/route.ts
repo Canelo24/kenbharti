@@ -4,6 +4,8 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // On-screen QR preview for a single token (admin panel).
 export async function GET(req: NextRequest) {

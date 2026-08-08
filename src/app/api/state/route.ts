@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getRoundStatuses } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 // Public, tiny, CDN-cached. 800 polling phones hit the Vercel CDN,
 // not the database (s-maxage=5 + stale-while-revalidate=10).
