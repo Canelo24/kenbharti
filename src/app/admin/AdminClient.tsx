@@ -65,6 +65,7 @@ const NAV = [
   { id: "entries", label: "Entries", icon: "🖼️" },
   { id: "raffle", label: "Raffle", icon: "🎁" },
   { id: "tokens", label: "Tokens", icon: "🎟️" },
+  { id: "stress", label: "Stress test", icon: "🧪" },
 ];
 
 export default function AdminClient() {
@@ -260,6 +261,7 @@ export default function AdminClient() {
         <EntriesSection ov={ov} refresh={refresh} showToast={showToast} />
         <RaffleSection ov={ov} post={post} busy={busy} showToast={showToast} />
         <TokensSection showToast={showToast} refresh={refresh} />
+        <StressTestSection ov={ov} />
 
         {/* Kill switch */}
         <section className="card border-red-500/30">
@@ -1214,6 +1216,137 @@ function RaffleSection({
           ＋ Add
         </button>
       </div>
+    </section>
+  );
+}
+
+// ---------------- Stress test ----------------
+
+type LoadReport = {
+  pass: boolean;
+  seconds: number;
+  round: string;
+  votes: { sent: number; saved: number; already: number; failed: number };
+  polls: { sent: number; ok: number; failed: number; cached: number };
+  duplicates: number;
+  stored_matched: boolean;
+  latency_ms: { typical: number; slow: number; worst: number };
+  cleaned: boolean;
+};
+
+function StressTestSection({ ov }: { ov: Overview }) {
+  const [running, setRunning] = useState(false);
+  const [report, setReport] = useState<LoadReport | null>(null);
+  const [error, setError] = useState("");
+
+  const anyOpen =
+    ov.settings["rangoli_status"] === "open" ||
+    ov.settings["dance_status"] === "open";
+
+  async function run() {
+    setRunning(true);
+    setError("");
+    setReport(null);
+    try {
+      const res = await fetch("/api/admin/loadtest", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setReport(data);
+      else setError(data.error ?? `Failed (${res.status})`);
+    } catch {
+      setError("Network problem while running the test — try again.");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <section id="stress" className="card scroll-mt-32">
+      <SectionTitle
+        icon="🧪"
+        title="Stress test — simulate the full hall"
+        sub="Fires 800 real votes + 400 phone check-ins at the system, harder and faster than the real night, verifies the database stayed perfect, then deletes its test votes. Run BEFORE the event only."
+      />
+
+      {!anyOpen && (
+        <p className="mb-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+          Open a round first (the test votes like real guests do), then come
+          back and press the button.
+        </p>
+      )}
+
+      <button
+        className="btn-primary w-full"
+        disabled={running || !anyOpen}
+        onClick={() => {
+          if (
+            confirm(
+              "Simulate ~800 voters now?\n\nOnly do this BEFORE the event. It creates and then removes test votes in the open round. Takes up to a minute."
+            )
+          ) {
+            run();
+          }
+        }}
+      >
+        {running
+          ? "⏳ Simulating 800 voters… (up to a minute)"
+          : "🧪 Simulate 800 voters now"}
+      </button>
+
+      {error && (
+        <p className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+          ⚠️ {error}
+        </p>
+      )}
+
+      {report && (
+        <div
+          className={`mt-4 rounded-2xl border p-4 ${
+            report.pass
+              ? "border-green-500/40 bg-green-500/10"
+              : "border-red-500/40 bg-red-500/10"
+          }`}
+        >
+          <p className="text-lg font-black">
+            {report.pass
+              ? "✅ PASSED — ready for the full hall"
+              : "❌ FAILED — send Claude a screenshot of this box"}
+          </p>
+          <ul className="mt-3 space-y-1 text-sm">
+            <li>
+              🗳️ Votes: {report.votes.saved} saved
+              {report.votes.already > 0 && `, ${report.votes.already} duplicates correctly rejected`}
+              {", "}
+              <b className={report.votes.failed ? "text-red-300" : ""}>
+                {report.votes.failed} failed
+              </b>{" "}
+              (of {report.votes.sent} fired in {report.seconds}s)
+            </li>
+            <li>
+              📱 Phone check-ins: {report.polls.ok} ok,{" "}
+              <b className={report.polls.failed ? "text-red-300" : ""}>
+                {report.polls.failed} failed
+              </b>
+              {report.polls.cached > 0 &&
+                ` — ${report.polls.cached} served by the fast cache`}
+            </li>
+            <li>
+              🔒 Duplicate votes in database:{" "}
+              <b className={report.duplicates ? "text-red-300" : ""}>
+                {report.duplicates}
+              </b>{" "}
+              (must be 0)
+            </li>
+            <li>
+              ⚡ Speed: typically {report.latency_ms.typical}ms per vote,
+              slowest {report.latency_ms.worst}ms
+            </li>
+            <li>
+              🧹 Test votes cleaned up:{" "}
+              {report.cleaned ? "yes" : "NO — run the reset SQL"}
+            </li>
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
