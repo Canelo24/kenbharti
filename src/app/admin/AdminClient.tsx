@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "@/lib/version";
+import { useWakeRefresh } from "@/lib/useWakeRefresh";
 
 type Round = "rangoli" | "dance";
 type Entry = {
@@ -79,15 +80,21 @@ export default function AdminClient() {
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }, []);
 
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [ageSeconds, setAgeSeconds] = useState(0);
+
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/overview", { cache: "no-store" });
+      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (res.status === 401) {
         window.location.reload();
         return;
       }
       if (res.ok) {
         setOv(await res.json());
+        setUpdatedAt(Date.now());
         setLoadError("");
       } else {
         const data = await res.json().catch(() => ({}));
@@ -101,8 +108,22 @@ export default function AdminClient() {
   useEffect(() => {
     refresh();
     const id = setInterval(refresh, 5000);
-    return () => clearInterval(id);
+    // Live freshness ticker so a frozen page is visibly stale
+    const tick = setInterval(() => {
+      setAgeSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => {
+      clearInterval(id);
+      clearInterval(tick);
+    };
   }, [refresh]);
+
+  useEffect(() => {
+    setAgeSeconds(0);
+  }, [updatedAt]);
+
+  // Phones freeze background tabs — re-sync instantly on wake
+  useWakeRefresh(refresh);
 
   const post = useCallback(
     async (url: string, body: unknown): Promise<boolean> => {
@@ -171,7 +192,10 @@ export default function AdminClient() {
             </h1>
             <p className="text-xs text-white/50">
               Maa Tujhe Salaam · {APP_VERSION}
-              {ov.fp ? ` · db ${ov.fp}` : ""}
+              {ov.fp ? ` · db ${ov.fp}` : ""} ·{" "}
+              <span className={ageSeconds > 15 ? "font-bold text-red-400" : ""}>
+                updated {ageSeconds}s ago
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -218,6 +242,12 @@ export default function AdminClient() {
         <div className="mb-4 rounded-xl border border-red-500/50 bg-red-500/15 p-3 text-center text-sm font-semibold text-red-200">
           ⚠️ {loadError} — the numbers below are from the last successful
           update and may be out of date. Retrying automatically…
+        </div>
+      )}
+      {!loadError && ageSeconds > 15 && (
+        <div className="mb-4 rounded-xl border border-yellow-500/50 bg-yellow-500/15 p-3 text-center text-sm font-semibold text-yellow-200">
+          ⚠️ This page hasn&apos;t updated in {ageSeconds}s — what you see may
+          be old. Refreshing…
         </div>
       )}
 

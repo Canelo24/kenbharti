@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "@/lib/version";
+import { useWakeRefresh } from "@/lib/useWakeRefresh";
 
 type Round = "rangoli" | "dance";
 type Entry = { id: number; name: string; photo_url: string | null };
@@ -57,6 +58,10 @@ export default function VoterClient({ slug }: { slug: string }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // A voter who locks their phone and comes back mid-event gets the
+  // CURRENT state immediately, not a frozen page from minutes ago.
+  useWakeRefresh(refresh);
 
   // While waiting, poll the tiny CDN-cached /api/state every 10s and
   // re-fetch the full state only when something changed. Stops for good

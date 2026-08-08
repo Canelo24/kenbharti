@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { APP_VERSION } from "@/lib/version";
+import { useWakeRefresh } from "@/lib/useWakeRefresh";
 
 type Result = {
   id: number;
@@ -80,6 +81,9 @@ export default function ScreenClient() {
       clearInterval(watchdog);
     };
   }, [poll]);
+
+  // Re-sync instantly when the tab wakes from background/bfcache
+  useWakeRefresh(poll);
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_top,#1b2350_0%,#0b1026_55%,#04060f_100%)] p-8 text-center">
