@@ -73,9 +73,16 @@ export async function POST(req: NextRequest) {
     }
     const webp = await toSmallWebp(Buffer.from(await file.arrayBuffer()));
     const path = `entries/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
-    const { error: upErr } = await db()
+    let { error: upErr } = await db()
       .storage.from("photos")
       .upload(path, webp, { contentType: "image/webp", upsert: false });
+    if (upErr && /not found|bucket/i.test(upErr.message)) {
+      // Bucket missing (schema step skipped) — create it and retry once.
+      await db().storage.createBucket("photos", { public: true });
+      ({ error: upErr } = await db()
+        .storage.from("photos")
+        .upload(path, webp, { contentType: "image/webp", upsert: false }));
+    }
     if (upErr) {
       return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 });
     }

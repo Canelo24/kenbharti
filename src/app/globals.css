@@ -11,22 +11,25 @@ body {
 }
 
 .btn {
-  @apply rounded-lg px-4 py-3 font-semibold transition active:scale-95 disabled:opacity-40 disabled:active:scale-100;
+  @apply rounded-xl px-4 py-3 font-semibold transition active:scale-95 disabled:opacity-40 disabled:active:scale-100;
 }
 .btn-primary {
-  @apply btn bg-brand-saffron text-brand-navy hover:brightness-110;
+  @apply btn bg-gradient-to-b from-amber-400 to-brand-saffron text-brand-navy shadow-lg shadow-amber-500/20 hover:brightness-110;
 }
 .btn-ghost {
-  @apply btn border border-white/25 hover:bg-white/10;
+  @apply btn border border-white/15 bg-white/5 hover:bg-white/10;
 }
 .btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-500;
+  @apply btn bg-gradient-to-b from-red-500 to-red-700 text-white shadow-lg shadow-red-500/20 hover:brightness-110;
 }
 .card {
-  @apply rounded-2xl border border-white/10 bg-white/5 p-4;
+  @apply rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] p-5 shadow-xl shadow-black/20;
 }
 .input {
-  @apply w-full rounded-lg border border-white/20 bg-black/30 px-3 py-3 text-white placeholder-white/40 outline-none focus:border-brand-saffron;
+  @apply w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-white placeholder-white/40 outline-none transition focus:border-brand-saffron focus:ring-1 focus:ring-brand-saffron/50;
+}
+.chip {
+  @apply rounded-full px-3 py-1.5 text-sm font-semibold transition;
 }
 
 @keyframes kb-pulse {
