@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { APP_VERSION } from "@/lib/version";
 
 type Round = "rangoli" | "dance";
 type Entry = { id: number; name: string; photo_url: string | null };
@@ -31,6 +32,7 @@ export default function VoterClient({ slug }: { slug: string }) {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [justVoted, setJustVoted] = useState(false);
+  const [voteError, setVoteError] = useState("");
   const stateRef = useRef<VoterState | null>(null);
   stateRef.current = state;
 
@@ -83,6 +85,7 @@ export default function VoterClient({ slug }: { slug: string }) {
   async function submitVote() {
     if (!selected || !state?.open_round || submitting) return;
     setSubmitting(true);
+    setVoteError("");
     try {
       const res = await fetch("/api/vote", {
         method: "POST",
@@ -94,7 +97,7 @@ export default function VoterClient({ slug }: { slug: string }) {
           name: state.needs_name ? name.trim() : undefined,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         setJustVoted(true);
         setConfirming(false);
@@ -107,12 +110,23 @@ export default function VoterClient({ slug }: { slug: string }) {
               }
             : s
         );
-      } else {
+      } else if (res.status === 409) {
+        // Round closed while they were deciding — resync quietly.
         setConfirming(false);
+        setVoteError(data.error ?? "Voting has just closed for this round.");
         await refresh();
+      } else {
+        // NEVER fail silently: show exactly what went wrong, keep the ballot.
+        setConfirming(false);
+        setVoteError(
+          data.error ?? `Something went wrong (code ${res.status}). Your vote was NOT saved — please try again.`
+        );
       }
     } catch {
       setConfirming(false);
+      setVoteError(
+        "Network problem — your vote was NOT saved. Check your signal and try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -181,6 +195,12 @@ export default function VoterClient({ slug }: { slug: string }) {
                 Tap your favourite, then confirm. One vote — final.
               </p>
             </div>
+            {voteError && (
+              <div className="mt-3 rounded-2xl border border-red-500/50 bg-red-500/15 p-4 text-center">
+                <p className="font-bold text-red-300">⚠️ Vote not saved</p>
+                <p className="mt-1 text-sm text-red-200/90">{voteError}</p>
+              </div>
+            )}
           </header>
 
           <div className="grid grid-cols-2 gap-3">
@@ -428,6 +448,9 @@ function Shell({
           </div>
         )}
         {children}
+        <p className="mt-10 text-[10px] text-white/25">
+          Kenbharti Centre (Nairobi) · {APP_VERSION}
+        </p>
       </main>
     </div>
   );

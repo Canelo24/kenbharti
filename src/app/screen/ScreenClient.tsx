@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { APP_VERSION } from "@/lib/version";
 
 type Result = {
   id: number;
@@ -115,7 +116,8 @@ export default function ScreenClient() {
         />
         {connected === false
           ? "Reconnecting…"
-          : `LIVE · ${MODE_LABEL[data.mode] ?? data.mode}`}
+          : `LIVE · ${MODE_LABEL[data.mode] ?? data.mode}`}{" "}
+        · {APP_VERSION}
       </div>
 
       <AnimatePresence mode="wait">

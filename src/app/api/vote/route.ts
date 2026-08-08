@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
       // unique_violation: this token already voted this round
       return NextResponse.json({ ok: true, already: true });
     }
-    return NextResponse.json({ error: "server" }, { status: 500 });
+    // Surface the real reason — a silent failure here once made votes
+    // vanish invisibly. Never again.
+    return NextResponse.json(
+      { error: `Vote could not be saved (${insertErr.message}). Please show this to the help desk.` },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ ok: true, already: false });

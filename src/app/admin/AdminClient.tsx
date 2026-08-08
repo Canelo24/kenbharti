@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { APP_VERSION } from "@/lib/version";
 
 type Round = "rangoli" | "dance";
 type Entry = {
@@ -167,7 +168,9 @@ export default function AdminClient() {
             <h1 className="bg-gradient-to-r from-brand-saffron to-brand-gold bg-clip-text text-xl font-extrabold text-transparent">
               🎛️ Control Room
             </h1>
-            <p className="text-xs text-white/50">Maa Tujhe Salaam · Kenbharti</p>
+            <p className="text-xs text-white/50">
+              Maa Tujhe Salaam · Kenbharti · {APP_VERSION}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <div className="rounded-xl bg-white/5 px-3 py-1.5 text-right">
@@ -210,6 +213,7 @@ export default function AdminClient() {
       )}
 
       <div className="space-y-5">
+        <SystemCheckSection />
         <RoundsSection ov={ov} post={post} busy={busy} showToast={showToast} />
         <ScreenSection ov={ov} post={post} busy={busy} />
         <BrandingSection ov={ov} refresh={refresh} showToast={showToast} />
@@ -258,6 +262,115 @@ function SectionTitle({
       </h2>
       {sub && <p className="mt-1 text-xs text-white/50">{sub}</p>}
     </div>
+  );
+}
+
+// ---------------- System check ----------------
+
+type HealthCheck = { name: string; ok: boolean; detail: string; fix?: string };
+
+function SystemCheckSection() {
+  const [checks, setChecks] = useState<HealthCheck[] | null>(null);
+  const [allOk, setAllOk] = useState<boolean | null>(null);
+  const [running, setRunning] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const run = useCallback(async () => {
+    setRunning(true);
+    try {
+      const res = await fetch("/api/admin/health", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setChecks(data.checks);
+        setAllOk(data.ok);
+        if (!data.ok) setExpanded(true);
+      }
+    } catch {
+      setAllOk(false);
+      setChecks([
+        {
+          name: "Server",
+          ok: false,
+          detail: "Could not run the check — network problem?",
+        },
+      ]);
+      setExpanded(true);
+    } finally {
+      setRunning(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    run();
+  }, [run]);
+
+  return (
+    <section
+      className={`card ${
+        allOk === false
+          ? "border-red-500/50"
+          : allOk
+            ? "border-green-500/30"
+            : ""
+      }`}
+    >
+      <button
+        className="flex w-full items-center justify-between"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <span className="flex items-center gap-2 text-lg font-bold">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-lg">
+            {allOk === null ? "⏳" : allOk ? "💚" : "🚨"}
+          </span>
+          System check
+          {allOk === true && (
+            <span className="rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs font-bold text-green-300">
+              ALL GOOD
+            </span>
+          )}
+          {allOk === false && (
+            <span className="rounded-full bg-red-500/30 px-2.5 py-0.5 text-xs font-bold text-red-200">
+              PROBLEMS FOUND
+            </span>
+          )}
+        </span>
+        <span className="text-white/40">{expanded ? "▲" : "▼"}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-1.5">
+          {(checks ?? []).map((c) => (
+            <div
+              key={c.name}
+              className={`rounded-xl p-2.5 text-sm ${
+                c.ok ? "bg-black/20" : "border border-red-500/40 bg-red-500/10"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">
+                  {c.ok ? "✅" : "❌"} {c.name}
+                </span>
+                <span
+                  className={`text-xs ${c.ok ? "text-white/40" : "text-red-300"}`}
+                >
+                  {c.detail}
+                </span>
+              </div>
+              {!c.ok && c.fix && (
+                <p className="mt-1 text-xs text-white/70">👉 {c.fix}</p>
+              )}
+            </div>
+          ))}
+          <button
+            className="btn-ghost mt-2 w-full py-2 text-sm"
+            disabled={running}
+            onClick={run}
+          >
+            {running ? "⏳ Checking…" : "🔄 Run check again"}
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
