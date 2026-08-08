@@ -24,6 +24,7 @@ type ScreenData = {
   results?: Result[] | null;
   raffle?: Raffle | null;
   logo_url?: string | null;
+  fp?: string;
 };
 
 const ROUND_TITLE: Record<string, string> = {
@@ -131,6 +132,7 @@ export default function ScreenClient() {
           ? "Reconnecting…"
           : `LIVE · ${MODE_LABEL[data.mode] ?? data.mode}`}{" "}
         · {APP_VERSION}
+        {data.fp ? ` · db ${data.fp}` : ""}
       </div>
 
       <AnimatePresence mode="wait">

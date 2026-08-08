@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db, fetchAllRows } from "@/lib/db";
+import { dbFingerprint } from "@/lib/fingerprint";
 import { getSettings, Round, ROUNDS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -112,6 +113,7 @@ async function buildOverview() {
   return NextResponse.json(
     {
       settings,
+      fp: dbFingerprint(),
       entries: entries ?? [],
       tallies,
       turnout: {

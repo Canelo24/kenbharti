@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { dbFingerprint, expectedHost } from "@/lib/fingerprint";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +25,28 @@ const REPAIR_FIX =
 
 // Full system self-diagnosis. Every symptom ("votes not counting",
 // "screen not changing") shows up here as a precise ❌ with its fix.
-export async function GET() {
+export async function GET(req: NextRequest) {
   const denied = requireAdmin();
   if (denied) return denied;
 
   const checks: Check[] = [];
+
+  // 0. Correct address: operating the event from a temporary per-deployment
+  //    URL splits the system — admin on one copy, voters on another.
+  const expect = expectedHost();
+  const actual = req.nextUrl.host;
+  const hostOk =
+    !expect || actual === expect || actual.startsWith("localhost");
+  checks.push({
+    name: "Using the correct address",
+    ok: hostOk,
+    detail: hostOk
+      ? `${actual} (db ${dbFingerprint()})`
+      : `You are on ${actual} but the real site is ${expect}`,
+    fix: hostOk
+      ? undefined
+      : `Close this tab and open https://${expect}/admin instead — temporary deployment links are separate copies of the site.`,
+  });
 
   // 1. Environment variables
   for (const key of [

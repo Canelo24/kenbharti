@@ -25,6 +25,7 @@ type Prize = {
 };
 type Overview = {
   settings: Record<string, string>;
+  fp?: string;
   entries: Entry[];
   tallies: Record<Round, { entry_id: number; votes: number }[]>;
   turnout: { voted: number; active: number; total: number };
@@ -169,7 +170,8 @@ export default function AdminClient() {
               🎛️ Control Room
             </h1>
             <p className="text-xs text-white/50">
-              Maa Tujhe Salaam · Kenbharti · {APP_VERSION}
+              Maa Tujhe Salaam · {APP_VERSION}
+              {ov.fp ? ` · db ${ov.fp}` : ""}
             </p>
           </div>
           <div className="flex items-center gap-2">

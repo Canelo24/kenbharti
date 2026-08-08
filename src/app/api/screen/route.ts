@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { dbFingerprint } from "@/lib/fingerprint";
 import { getSettings, Round } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export async function GET() {
   const payload: Record<string, unknown> = {
     mode,
     logo_url: s["logo_url"] ?? null,
+    fp: dbFingerprint(),
   };
 
   const roundOf: Record<string, Round> = {
