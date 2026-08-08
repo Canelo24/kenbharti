@@ -58,6 +58,7 @@ const SCREEN_BUTTONS: { mode: string; label: string }[] = [
 
 export default function AdminClient() {
   const [ov, setOv] = useState<Overview | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,9 +76,15 @@ export default function AdminClient() {
         window.location.reload();
         return;
       }
-      if (res.ok) setOv(await res.json());
+      if (res.ok) {
+        setOv(await res.json());
+        setLoadError("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setLoadError(data.error ?? `Server error (${res.status})`);
+      }
     } catch {
-      /* poll again next tick */
+      setLoadError("Network problem — check your internet connection.");
     }
   }, []);
 
@@ -115,8 +122,25 @@ export default function AdminClient() {
 
   if (!ov) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="kb-pulse">Loading control room…</p>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+        {loadError ? (
+          <>
+            <p className="text-lg font-bold text-red-400">⚠️ {loadError}</p>
+            <div className="max-w-md text-sm text-white/60">
+              <p>Usually this means one of the Supabase values in Vercel is wrong.</p>
+              <p className="mt-2">
+                Check <b>SUPABASE_URL</b> (https://….supabase.co) and{" "}
+                <b>SUPABASE_SERVICE_ROLE_KEY</b> in Vercel → Settings →
+                Environment Variables, then <b>Redeploy</b>.
+              </p>
+            </div>
+            <button className="btn-ghost" onClick={refresh}>
+              Try again
+            </button>
+          </>
+        ) : (
+          <p className="kb-pulse">Loading control room…</p>
+        )}
       </main>
     );
   }

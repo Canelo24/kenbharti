@@ -10,6 +10,20 @@ export async function GET() {
   const denied = requireAdmin();
   if (denied) return denied;
 
+  try {
+    return await buildOverview();
+  } catch (e) {
+    // Surface the real reason (bad SUPABASE_URL, bad key, …) so the
+    // admin page can display it instead of loading forever.
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json(
+      { error: `Cannot reach the database: ${msg}` },
+      { status: 500 }
+    );
+  }
+}
+
+async function buildOverview() {
   const settings = await getSettings([
     "rangoli_status",
     "dance_status",
