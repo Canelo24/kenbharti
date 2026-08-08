@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getRoundStatuses, Round } from "@/lib/settings";
+import { getRoundStatuses, getSettings, Round } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,7 @@ export async function GET(
   }
 
   const statuses = await getRoundStatuses();
+  const logoUrl = (await getSettings(["logo_url"]))["logo_url"] ?? null;
 
   const { data: votes } = await db()
     .from("votes")
@@ -64,6 +65,7 @@ export async function GET(
       voted: votedRounds,
       open_round: openRound ?? null,
       entries,
+      logo_url: logoUrl,
     },
     { headers: { "Cache-Control": "no-store" } }
   );

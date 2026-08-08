@@ -13,10 +13,14 @@ export async function GET() {
     "rangoli_status",
     "dance_status",
     "raffle_current",
+    "logo_url",
   ]);
   const mode = s["screen_mode"] ?? "idle";
 
-  const payload: Record<string, unknown> = { mode };
+  const payload: Record<string, unknown> = {
+    mode,
+    logo_url: s["logo_url"] ?? null,
+  };
 
   const roundOf: Record<string, Round> = {
     live_r1: "rangoli",

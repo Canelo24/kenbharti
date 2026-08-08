@@ -30,11 +30,26 @@ export async function POST(req: NextRequest) {
   }
 
   const key = `${round}_status`;
-  const current = (await getSettings([key]))[key] ?? "locked";
+  const otherRound = round === "rangoli" ? "dance" : "rangoli";
+  const otherKey = `${otherRound}_status`;
+  const settings = await getSettings([key, otherKey]);
+  const current = settings[key] ?? "locked";
   const rule = ALLOWED[action];
   if (!rule.from.includes(current)) {
     return NextResponse.json(
       { error: `Cannot ${action}: round is currently '${current}'` },
+      { status: 409 }
+    );
+  }
+
+  // Only one round may ever be open at a time — otherwise voters get a
+  // second ballot straight after the first and it looks like double voting.
+  if (
+    (action === "open" || action === "reopen") &&
+    (settings[otherKey] ?? "locked") === "open"
+  ) {
+    return NextResponse.json(
+      { error: `Close the ${otherRound} round first — only one round can be open at a time` },
       { status: 409 }
     );
   }

@@ -31,6 +31,7 @@ async function buildOverview() {
     "raffle_pool",
     "active_ranges",
     "raffle_current",
+    "logo_url",
   ]);
 
   // Per-option tallies (admin-only while voting runs)

@@ -210,8 +210,9 @@ export default function AdminClient() {
       )}
 
       <div className="space-y-5">
-        <RoundsSection ov={ov} post={post} busy={busy} />
+        <RoundsSection ov={ov} post={post} busy={busy} showToast={showToast} />
         <ScreenSection ov={ov} post={post} busy={busy} />
+        <BrandingSection ov={ov} refresh={refresh} showToast={showToast} />
         <EntriesSection ov={ov} refresh={refresh} showToast={showToast} />
         <RaffleSection ov={ov} post={post} busy={busy} showToast={showToast} />
         <TokensSection showToast={showToast} refresh={refresh} />
@@ -266,10 +267,12 @@ function RoundsSection({
   ov,
   post,
   busy,
+  showToast,
 }: {
   ov: Overview;
   post: (u: string, b: unknown) => Promise<boolean>;
   busy: boolean;
+  showToast: (m: string) => void;
 }) {
   return (
     <section id="rounds" className="card scroll-mt-32">
@@ -307,7 +310,13 @@ function RoundsSection({
                 <button
                   className="btn-primary py-2.5 text-sm"
                   disabled={busy || status !== "locked"}
-                  onClick={() => post("/api/admin/round", { round, action: "open" })}
+                  onClick={async () => {
+                    if (await post("/api/admin/round", { round, action: "open" })) {
+                      showToast(
+                        `✅ ${round === "rangoli" ? "Rangoli" : "Dance"} is open! Now press "Live count" in the Projector section 👇`
+                      );
+                    }
+                  }}
                 >
                   ▶ Open
                 </button>
@@ -429,6 +438,94 @@ function ScreenSection({
             </button>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+// ---------------- Branding (event logo) ----------------
+
+function BrandingSection({
+  ov,
+  refresh,
+  showToast,
+}: {
+  ov: Overview;
+  refresh: () => Promise<void>;
+  showToast: (m: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const logo = ov.settings["logo_url"];
+
+  return (
+    <section className="card">
+      <SectionTitle
+        icon="🦋"
+        title="Event logo"
+        sub="Shown on every voter's phone and on the projector. Upload once."
+      />
+      <div className="flex items-center gap-4">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logo}
+            alt="Event logo"
+            className="h-20 w-20 rounded-xl bg-white/90 object-contain p-1"
+          />
+        ) : (
+          <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 text-3xl">
+            🦋
+          </div>
+        )}
+        <div className="flex-1">
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileRef}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setUploading(true);
+              try {
+                const fd = new FormData();
+                fd.set("logo", f);
+                const res = await fetch("/api/admin/branding", {
+                  method: "POST",
+                  body: fd,
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                  showToast("✅ Logo uploaded — it now shows on phones & projector");
+                  await refresh();
+                } else {
+                  showToast(`⚠️ ${data.error ?? "Upload failed"}`);
+                }
+              } catch {
+                showToast("⚠️ Network problem");
+              } finally {
+                setUploading(false);
+                e.target.value = "";
+              }
+            }}
+          />
+          <button
+            className="btn-primary w-full text-sm"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            {uploading
+              ? "⏳ Uploading…"
+              : logo
+                ? "📷 Replace logo"
+                : "📷 Upload the Kenbharti logo"}
+          </button>
+          <p className="mt-1.5 text-[11px] text-white/40">
+            Use the butterfly logo image — PNG with white or transparent
+            background looks best.
+          </p>
+        </div>
       </div>
     </section>
   );

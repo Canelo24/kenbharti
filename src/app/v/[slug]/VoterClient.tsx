@@ -13,12 +13,15 @@ type VoterState = {
   voted?: Round[];
   open_round?: Round | null;
   entries?: Entry[];
+  logo_url?: string | null;
 };
 
+const ROUND_NO: Record<Round, string> = { rangoli: "ROUND 1", dance: "ROUND 2" };
 const ROUND_LABEL: Record<Round, string> = {
   rangoli: "Rangoli Competition",
   dance: "Dance Competition",
 };
+const ROUND_ICON: Record<Round, string> = { rangoli: "🎨", dance: "💃" };
 
 export default function VoterClient({ slug }: { slug: string }) {
   const [state, setState] = useState<VoterState | null>(null);
@@ -33,12 +36,14 @@ export default function VoterClient({ slug }: { slug: string }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`/api/voter/${encodeURIComponent(slug)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/voter/${encodeURIComponent(slug)}?t=${Date.now()}`,
+        { cache: "no-store" }
+      );
       if (!res.ok) throw new Error("bad status");
       const data: VoterState = await res.json();
       setState(data);
+      setSelected(null);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -49,9 +54,9 @@ export default function VoterClient({ slug }: { slug: string }) {
     refresh();
   }, [refresh]);
 
-  // Waiting behaviour: poll the tiny CDN-cached /api/state every 10s.
-  // When statuses change, re-fetch the full voter state once.
-  // Polling stops for good once this token has voted in both rounds.
+  // While waiting, poll the tiny CDN-cached /api/state every 10s and
+  // re-fetch the full state only when something changed. Stops for good
+  // once this card has voted in both rounds.
   useEffect(() => {
     const id = setInterval(async () => {
       const s = stateRef.current;
@@ -59,21 +64,17 @@ export default function VoterClient({ slug }: { slug: string }) {
       const votedAll =
         s.voted && s.voted.includes("rangoli") && s.voted.includes("dance");
       if (votedAll) return;
-      // While the ballot is on screen there is nothing to poll for.
       if (s.open_round && !s.voted?.includes(s.open_round)) return;
       try {
         const res = await fetch("/api/state", { cache: "no-store" });
         const fresh = await res.json();
         const cur = stateRef.current?.statuses;
-        if (
-          !cur ||
-          fresh.rangoli !== cur.rangoli ||
-          fresh.dance !== cur.dance
-        ) {
+        if (!cur || fresh.rangoli !== cur.rangoli || fresh.dance !== cur.dance) {
+          setJustVoted(false);
           refresh();
         }
       } catch {
-        /* network blip — try again next tick */
+        /* try again next tick */
       }
     }, 10_000);
     return () => clearInterval(id);
@@ -107,7 +108,6 @@ export default function VoterClient({ slug }: { slug: string }) {
             : s
         );
       } else {
-        // Round probably closed while they were deciding — resync.
         setConfirming(false);
         await refresh();
       }
@@ -134,7 +134,8 @@ export default function VoterClient({ slug }: { slug: string }) {
   if (!state) {
     return (
       <Shell>
-        <p className="kb-pulse text-lg">Loading…</p>
+        <Diya />
+        <p className="kb-pulse mt-4 text-lg text-white/70">Loading…</p>
       </Shell>
     );
   }
@@ -142,11 +143,9 @@ export default function VoterClient({ slug }: { slug: string }) {
   if (!state.valid) {
     return (
       <Shell>
-        <div className="text-4xl">🙏</div>
-        <h1 className="mt-3 text-xl font-bold">
-          This code isn&apos;t valid
-        </h1>
-        <p className="mt-2 text-white/70">Please see the help desk.</p>
+        <div className="text-5xl">🙏</div>
+        <h1 className="mt-4 text-2xl font-bold">This code isn&apos;t valid</h1>
+        <p className="mt-2 text-white/60">Please visit the help desk.</p>
       </Shell>
     );
   }
@@ -154,170 +153,282 @@ export default function VoterClient({ slug }: { slug: string }) {
   const openRound = state.open_round;
   const voted = state.voted ?? [];
   const statuses = state.statuses ?? { rangoli: "locked", dance: "locked" };
+  const logo = state.logo_url;
 
-  // Ballot: a round is open and this token hasn't voted in it
+  // ---------- BALLOT ----------
   if (openRound && !voted.includes(openRound)) {
     const needName = !!state.needs_name;
     const nameOk = !needName || name.trim().length >= 2;
     return (
-      <main className="mx-auto min-h-screen max-w-md p-4 pb-32">
-        <header className="mb-4 text-center">
-          <p className="text-sm uppercase tracking-widest text-brand-gold">
-            Maa Tujhe Salaam
-          </p>
-          <h1 className="text-2xl font-bold">{ROUND_LABEL[openRound]}</h1>
-          <p className="mt-1 text-white/70">Tap your favourite, then confirm.</p>
-        </header>
-
-        <div className="grid grid-cols-2 gap-3">
-          {(state.entries ?? []).map((e) => (
-            <button
-              key={e.id}
-              onClick={() => setSelected(e)}
-              className={`card overflow-hidden p-0 text-left transition ${
-                selected?.id === e.id
-                  ? "border-brand-saffron ring-2 ring-brand-saffron"
-                  : ""
-              }`}
-            >
-              {e.photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={e.photo_url}
-                  alt={e.name}
-                  loading="lazy"
-                  className="aspect-square w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-square w-full items-center justify-center bg-white/10 text-4xl">
-                  {openRound === "rangoli" ? "🎨" : "💃"}
-                </div>
-              )}
-              <div className="flex items-center justify-between p-3">
-                <span className="font-semibold">{e.name}</span>
-                {selected?.id === e.id && (
-                  <span className="text-brand-saffron">●</span>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="fixed inset-x-0 bottom-0 border-t border-white/10 bg-brand-navy/95 p-4 backdrop-blur">
-          <div className="mx-auto max-w-md">
-            {needName && selected && (
-              <input
-                className="input mb-3"
-                placeholder="Your full name (for the raffle draw)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-              />
-            )}
-            <button
-              className="btn-primary w-full text-lg"
-              disabled={!selected || !nameOk}
-              onClick={() => setConfirming(true)}
-            >
-              {selected ? `Vote for ${selected.name}` : "Select an entry above"}
-            </button>
-          </div>
-        </div>
-
-        {confirming && selected && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-            <div className="card w-full max-w-md border-brand-saffron/50 bg-brand-navy p-6">
-              <h2 className="text-xl font-bold">
-                Confirm vote for {selected.name}
-              </h2>
-              <p className="mt-2 text-white/70">
-                This cannot be changed. Votes are final.
+      <div className="min-h-screen bg-gradient-to-b from-[#141a3d] via-brand-navy to-[#05070f]">
+        <TricolorBar />
+        <main className="mx-auto max-w-md px-4 pb-40 pt-4">
+          <header className="mb-5">
+            <div className="mb-4 flex items-center justify-between">
+              <Logo logo={logo} size="sm" />
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-white/70">
+                🎟️ {state.display_code}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-brand-saffron/30 bg-gradient-to-r from-brand-saffron/15 to-brand-gold/5 p-4 text-center shadow-lg">
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-brand-gold">
+                {ROUND_NO[openRound]} · voting open
               </p>
-              <div className="mt-5 flex gap-3">
+              <h1 className="mt-1 text-3xl font-extrabold">
+                {ROUND_ICON[openRound]} {ROUND_LABEL[openRound]}
+              </h1>
+              <p className="mt-1 text-sm text-white/60">
+                Tap your favourite, then confirm. One vote — final.
+              </p>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-2 gap-3">
+            {(state.entries ?? []).map((e, i) => {
+              const isSel = selected?.id === e.id;
+              return (
                 <button
-                  className="btn-ghost flex-1"
-                  onClick={() => setConfirming(false)}
-                  disabled={submitting}
+                  key={e.id}
+                  onClick={() => setSelected(e)}
+                  className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-150 ${
+                    isSel
+                      ? "scale-[1.02] border-brand-saffron bg-brand-saffron/10 shadow-xl shadow-amber-500/20 ring-2 ring-brand-saffron"
+                      : "border-white/10 bg-white/5 active:scale-95"
+                  }`}
                 >
-                  Go back
+                  {e.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={e.photo_url}
+                      alt={e.name}
+                      loading="lazy"
+                      className="aspect-square w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-5xl">
+                      {ROUND_ICON[openRound]}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-1 p-3">
+                    <span className="truncate text-sm font-bold">{e.name}</span>
+                    <span
+                      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-xs font-black transition ${
+                        isSel
+                          ? "border-brand-saffron bg-brand-saffron text-brand-navy"
+                          : "border-white/25 text-transparent"
+                      }`}
+                    >
+                      ✓
+                    </span>
+                  </div>
+                  {isSel && (
+                    <span className="absolute left-2 top-2 rounded-full bg-brand-saffron px-2 py-0.5 text-[10px] font-black uppercase text-brand-navy shadow">
+                      Your pick
+                    </span>
+                  )}
                 </button>
-                <button
-                  className="btn-primary flex-1"
-                  onClick={submitVote}
-                  disabled={submitting}
-                >
-                  {submitting ? "Sending…" : "Confirm ✓"}
-                </button>
-              </div>
+              );
+            })}
+          </div>
+
+          {/* Sticky confirm bar */}
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0a0f24]/95 px-4 pb-6 pt-4 backdrop-blur-md">
+            <div className="mx-auto max-w-md">
+              {needName && selected && (
+                <input
+                  className="input mb-3"
+                  placeholder="Your full name — needed for the raffle 🎁"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                />
+              )}
+              <button
+                className="btn-primary w-full py-4 text-lg"
+                disabled={!selected || !nameOk}
+                onClick={() => setConfirming(true)}
+              >
+                {!selected
+                  ? "👆 Select an entry above"
+                  : !nameOk
+                    ? "Enter your name to continue"
+                    : `Vote for ${selected.name} →`}
+              </button>
             </div>
           </div>
-        )}
-      </main>
+
+          {confirming && selected && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+              <div className="w-full max-w-md rounded-3xl border border-brand-saffron/40 bg-gradient-to-b from-[#1a2148] to-brand-navy p-6 shadow-2xl">
+                <p className="text-center text-4xl">{ROUND_ICON[openRound]}</p>
+                <h2 className="mt-2 text-center text-2xl font-extrabold">
+                  Vote for {selected.name}?
+                </h2>
+                <p className="mt-2 text-center text-sm text-white/60">
+                  {ROUND_NO[openRound]} · {ROUND_LABEL[openRound]}
+                  <br />
+                  <b className="text-white/80">This cannot be changed.</b> Votes are final.
+                </p>
+                <div className="mt-6 flex gap-3">
+                  <button
+                    className="btn-ghost flex-1"
+                    onClick={() => setConfirming(false)}
+                    disabled={submitting}
+                  >
+                    ← Go back
+                  </button>
+                  <button
+                    className="btn-primary flex-1"
+                    onClick={submitVote}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Sending…" : "Confirm ✓"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     );
   }
 
-  // Receipt: voted in the currently open round (or just voted)
+  // ---------- RECEIPT ----------
   if ((openRound && voted.includes(openRound)) || justVoted) {
     return (
-      <Shell>
-        <div className="text-6xl">✅</div>
-        <h1 className="mt-4 text-2xl font-bold">Vote received</h1>
-        <p className="mt-2 text-lg text-brand-gold">
-          You&apos;re in the raffle draw! 🎁
-        </p>
-        <p className="mt-4 text-white/60">
-          Keep your card safe and watch the big screen.
-        </p>
-      </Shell>
-    );
-  }
-
-  // Voted in both rounds — all done
-  if (voted.includes("rangoli") && voted.includes("dance")) {
-    return (
-      <Shell>
-        <div className="text-6xl">🎁</div>
-        <h1 className="mt-4 text-2xl font-bold">All votes cast — thank you!</h1>
-        <p className="mt-2 text-brand-gold">You&apos;re in the raffle draw!</p>
-        <p className="mt-4 text-white/60">Good luck — watch the big screen.</p>
-      </Shell>
-    );
-  }
-
-  // A round was closed/revealed and nothing is open
-  const anyStarted = Object.values(statuses).some((s) => s !== "locked");
-  if (anyStarted) {
-    return (
-      <Shell>
-        <div className="text-6xl">📺</div>
-        <h1 className="mt-4 text-2xl font-bold">Voting closed</h1>
-        <p className="mt-2 text-white/70">Eyes on the big screen!</p>
-        <p className="mt-4 text-sm text-white/40">
+      <Shell logo={logo} code={state.display_code}>
+        <div className="flex h-24 w-24 animate-[kb-pop_0.5s_ease-out] items-center justify-center rounded-full bg-gradient-to-b from-green-400 to-green-600 text-5xl shadow-2xl shadow-green-500/40">
+          ✓
+        </div>
+        <h1 className="mt-5 text-3xl font-extrabold">Vote received!</h1>
+        {openRound && (
+          <p className="mt-1 text-sm text-white/50">
+            {ROUND_NO[openRound]} · {ROUND_LABEL[openRound]}
+          </p>
+        )}
+        <div className="mt-5 rounded-2xl border border-brand-gold/30 bg-brand-gold/10 px-6 py-4">
+          <p className="text-lg font-bold text-brand-gold">
+            🎁 You&apos;re in the raffle draw!
+          </p>
+          <p className="mt-1 text-xs text-white/60">
+            Keep your card safe — winners are announced on the big screen.
+          </p>
+        </div>
+        <p className="mt-6 text-sm text-white/40">
           This page updates automatically when the next round opens.
         </p>
       </Shell>
     );
   }
 
-  // Pre-event welcome
+  // ---------- ALL DONE ----------
+  if (voted.includes("rangoli") && voted.includes("dance")) {
+    return (
+      <Shell logo={logo} code={state.display_code}>
+        <div className="text-6xl">🎉</div>
+        <h1 className="mt-4 text-3xl font-extrabold">All votes cast!</h1>
+        <div className="mt-5 rounded-2xl border border-brand-gold/30 bg-brand-gold/10 px-6 py-4">
+          <p className="text-lg font-bold text-brand-gold">
+            🎁 You&apos;re in the raffle draw!
+          </p>
+          <p className="mt-1 text-xs text-white/60">
+            Good luck — eyes on the big screen.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ---------- CLOSED / WAITING ----------
+  const anyStarted = Object.values(statuses).some((s) => s !== "locked");
+  if (anyStarted) {
+    return (
+      <Shell logo={logo} code={state.display_code}>
+        <div className="text-6xl">📺</div>
+        <h1 className="mt-4 text-3xl font-extrabold">Voting closed</h1>
+        <p className="mt-2 text-lg text-white/70">Eyes on the big screen!</p>
+        <p className="kb-pulse mt-6 text-sm text-white/40">
+          This page updates automatically when the next round opens.
+        </p>
+      </Shell>
+    );
+  }
+
+  // ---------- WELCOME ----------
   return (
-    <Shell>
-      <div className="text-5xl">🇮🇳 🇰🇪</div>
-      <h1 className="mt-4 text-2xl font-bold text-brand-saffron">
+    <Shell logo={logo} code={state.display_code}>
+      <h1 className="bg-gradient-to-r from-brand-saffron via-white to-brand-green bg-clip-text text-4xl font-extrabold text-transparent">
         Maa Tujhe Salaam
       </h1>
-      <p className="mt-2 text-lg">Welcome, {state.display_code}!</p>
-      <p className="kb-pulse mt-4 text-white/70">
-        Voting opens soon — keep this page open.
+      <p className="mt-1 text-sm uppercase tracking-[0.3em] text-white/40">
+        Kenbharti Centre · Nairobi
       </p>
+      <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 px-6 py-5">
+        <p className="text-lg font-semibold">Welcome! 🙏</p>
+        <p className="kb-pulse mt-2 text-white/60">
+          Voting opens soon — keep this page open.
+        </p>
+      </div>
     </Shell>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+// ---------- shared pieces ----------
+
+function TricolorBar() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center p-6 text-center">
-      {children}
-    </main>
+    <div className="flex h-1.5 w-full">
+      <div className="flex-1 bg-brand-saffron" />
+      <div className="flex-1 bg-white" />
+      <div className="flex-1 bg-brand-green" />
+      <div className="flex-1 bg-black" />
+      <div className="flex-1 bg-red-600" />
+    </div>
+  );
+}
+
+function Logo({ logo, size = "lg" }: { logo?: string | null; size?: "sm" | "lg" }) {
+  const cls = size === "lg" ? "h-28" : "h-12";
+  if (logo) {
+    return (
+      <div className={`${cls} flex items-center`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logo} alt="Kenbharti" className="h-full w-auto drop-shadow-xl" />
+      </div>
+    );
+  }
+  return <div className={size === "lg" ? "text-6xl" : "text-3xl"}>🦋</div>;
+}
+
+function Diya() {
+  return <div className="text-5xl">🪔</div>;
+}
+
+function Shell({
+  children,
+  logo,
+  code,
+}: {
+  children: React.ReactNode;
+  logo?: string | null;
+  code?: string;
+}) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#141a3d] via-brand-navy to-[#05070f]">
+      <TricolorBar />
+      <main className="mx-auto flex min-h-[calc(100vh-6px)] max-w-md flex-col items-center justify-center p-6 text-center">
+        {(logo || code) && (
+          <div className="mb-6 flex flex-col items-center gap-3">
+            <Logo logo={logo} />
+            {code && (
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-white/60">
+                🎟️ {code}
+              </span>
+            )}
+          </div>
+        )}
+        {children}
+      </main>
+    </div>
   );
 }
