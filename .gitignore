@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+tokens.csv
+qr-cards.pdf
+.DS_Store
+*.tsbuildinfo
