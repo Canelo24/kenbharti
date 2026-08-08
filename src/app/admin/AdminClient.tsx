@@ -519,6 +519,14 @@ function ScreenSection({
   busy: boolean;
 }) {
   const current = ov.settings["screen_mode"] ?? "idle";
+  // A results button only makes sense once that round is revealed —
+  // otherwise the projector would sit on "Results coming up…" forever.
+  const unlocked: Record<string, boolean> = {
+    results_r1: ov.settings["rangoli_status"] === "revealed",
+    results_r2: ov.settings["dance_status"] === "revealed",
+  };
+  const currentLabel =
+    SCREEN_BUTTONS.find((b) => b.mode === current)?.label ?? current;
   return (
     <section id="screen" className="card scroll-mt-32">
       <SectionTitle
@@ -531,13 +539,18 @@ function ScreenSection({
           </>
         }
       />
+      <p className="mb-3 rounded-xl bg-black/25 px-3 py-2 text-sm">
+        <span className="text-white/50">Projector is now showing: </span>
+        <b className="text-brand-gold">{currentLabel}</b>
+      </p>
       <div className="grid grid-cols-2 gap-2">
         {SCREEN_BUTTONS.map((b) => {
           const active = current === b.mode;
+          const locked = b.mode in unlocked && !unlocked[b.mode];
           return (
             <button
               key={b.mode}
-              disabled={busy}
+              disabled={busy || locked}
               className={`btn flex items-center gap-2 py-3 text-left text-sm ${
                 active
                   ? "bg-gradient-to-b from-amber-400 to-brand-saffron text-brand-navy shadow-lg shadow-amber-500/30"
@@ -545,13 +558,17 @@ function ScreenSection({
               }`}
               onClick={() => post("/api/admin/screen-mode", { mode: b.mode })}
             >
-              <span className="text-lg">{b.icon}</span>
+              <span className="text-lg">{locked ? "🔒" : b.icon}</span>
               <span className="flex-1 leading-tight">{b.label}</span>
               {active && <span className="text-xs font-black">● LIVE</span>}
             </button>
           );
         })}
       </div>
+      <p className="mt-2 text-[11px] text-white/40">
+        🔒 Results buttons unlock when you press <b>Reveal</b> in Rounds —
+        Reveal switches the projector to the results automatically.
+      </p>
     </section>
   );
 }

@@ -261,6 +261,9 @@ function ResultsView({
         <p className="kb-pulse mt-10 text-5xl font-bold text-white/80">
           Results coming up…
         </p>
+        <p className="mt-8 text-lg text-white/30">
+          (waiting for the reveal from the control room)
+        </p>
       </motion.div>
     );
   }
