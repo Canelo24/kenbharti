@@ -17,11 +17,13 @@ type Raffle = {
   display_code: string;
   holder_name: string;
 };
+type GalleryEntry = { id: number; name: string; photo_url: string | null };
 type ScreenData = {
   mode: string;
   round?: string;
   round_status?: string;
   count?: number;
+  gallery?: GalleryEntry[];
   results?: Result[] | null;
   raffle?: Raffle | null;
   logo_url?: string | null;
@@ -86,7 +88,7 @@ export default function ScreenClient() {
   useWakeRefresh(poll);
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_top,#1b2350_0%,#0b1026_55%,#04060f_100%)] p-8 text-center">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_top,#3a1d0b_0%,#241207_55%,#0c0502_100%)] p-8 text-center">
       {/* Tricolor frame */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex h-2">
         <div className="flex-1 bg-brand-saffron" />
@@ -147,6 +149,7 @@ export default function ScreenClient() {
             round={data.round ?? ""}
             count={data.count ?? 0}
             roundStatus={data.round_status ?? "open"}
+            gallery={data.gallery ?? []}
           />
         )}
         {(data.mode === "results_r1" || data.mode === "results_r2") && (
@@ -170,32 +173,89 @@ function IdleView({ logo }: { logo?: string | null }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col items-center gap-8"
+      className="flex flex-col items-center gap-7"
     >
-      {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <motion.img
-          src={logo}
-          alt="Kenbharti"
-          className="h-64 w-auto drop-shadow-[0_0_60px_rgba(255,153,51,0.25)]"
-          animate={{ y: [0, -12, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ) : (
-        <div className="text-9xl">🦋</div>
-      )}
+      <GoldSparks />
+      {/* Mandala halo behind the logo, echoing the poster */}
+      <div className="relative flex items-center justify-center">
+        <div className="absolute h-[26rem] w-[26rem] animate-[spin_90s_linear_infinite] rounded-full border border-brand-gold/20 [mask-image:radial-gradient(circle,black_60%,transparent_72%)]">
+          <div className="absolute inset-4 rounded-full border border-dashed border-brand-gold/25" />
+          <div className="absolute inset-10 rounded-full border border-brand-gold/15" />
+        </div>
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <motion.img
+            src={logo}
+            alt="Kenbharti"
+            className="relative h-56 w-auto drop-shadow-[0_0_70px_rgba(232,185,35,0.35)]"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ) : (
+          <div className="relative text-9xl">🦋</div>
+        )}
+      </div>
       <div>
-        <h1 className="bg-gradient-to-r from-brand-saffron via-white to-brand-green bg-clip-text text-8xl font-black leading-tight text-transparent">
+        <h1 className="gold-text font-display text-8xl font-extrabold leading-tight drop-shadow-[0_2px_20px_rgba(232,185,35,0.25)] md:text-9xl">
           Maa Tujhe Salaam
         </h1>
-        <p className="mt-3 text-2xl font-semibold uppercase tracking-[0.5em] text-brand-gold/80">
+        <p className="mt-2 font-display text-4xl italic text-brand-champagne/90">
+          18th Edition
+        </p>
+        <p className="mt-4 text-xl font-semibold uppercase tracking-[0.5em] text-brand-cream/60">
           Kenbharti Centre · Nairobi
         </p>
       </div>
-      <p className="kb-pulse text-3xl text-white/60">
-        🪔 Live voting &amp; raffle tonight 🪔
+      <p className="kb-pulse text-2xl text-brand-cream/60">
+        🪔 Celebrate the heartbeat of our community 🪔
       </p>
     </motion.div>
+  );
+}
+
+// Gentle golden specks drifting upward — poster sparkle, projector-cheap.
+function GoldSparks() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const sparks = Array.from({ length: 42 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: 0.8 + Math.random() * 2.2,
+      vy: 0.15 + Math.random() * 0.45,
+      tw: Math.random() * Math.PI * 2,
+    }));
+    let raf = 0;
+    const frame = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const s of sparks) {
+        s.y -= s.vy;
+        s.tw += 0.03;
+        if (s.y < -5) {
+          s.y = canvas.height + 5;
+          s.x = Math.random() * canvas.width;
+        }
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(232,185,35,${0.25 + 0.35 * Math.abs(Math.sin(s.tw))})`;
+        ctx.fill();
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none fixed inset-0 -z-10"
+      aria-hidden
+    />
   );
 }
 
@@ -205,14 +265,19 @@ function LiveView({
   round,
   count,
   roundStatus,
+  gallery,
 }: {
   round: string;
   count: number;
   roundStatus: string;
+  gallery: GalleryEntry[];
 }) {
   const [display, setDisplay] = useState(count);
   const target = useRef(count);
   const isOpen = roundStatus === "open";
+  // Rangoli gallery: rotate through the artworks people are voting on.
+  const photos = round === "rangoli" ? gallery.filter((g) => g.photo_url) : [];
+  const [photoIdx, setPhotoIdx] = useState(0);
 
   useEffect(() => {
     target.current = count;
@@ -226,12 +291,23 @@ function LiveView({
     return () => clearInterval(id);
   }, [count]);
 
+  useEffect(() => {
+    if (photos.length < 2) return;
+    const id = setInterval(
+      () => setPhotoIdx((i) => (i + 1) % photos.length),
+      5000
+    );
+    return () => clearInterval(id);
+  }, [photos.length]);
+
+  const current = photos.length > 0 ? photos[photoIdx % photos.length] : null;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.92 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col items-center gap-6"
+      className="flex w-full max-w-7xl flex-col items-center gap-6"
     >
       {isOpen ? (
         <div className="rounded-full border border-green-400/40 bg-green-500/10 px-8 py-2">
@@ -247,23 +323,70 @@ function LiveView({
           </p>
         </div>
       )}
-      <h1 className="text-6xl font-black text-brand-saffron md:text-7xl">
+      <h1 className="gold-text font-display text-6xl font-extrabold md:text-7xl">
         {ROUND_ICON[round]} {ROUND_TITLE[round] ?? "Voting"}
       </h1>
-      <div className="rounded-[3rem] border border-white/10 bg-black/30 px-24 py-6 shadow-2xl">
-        <p className="text-2xl uppercase tracking-[0.3em] text-white/50">
-          Votes received
-        </p>
-        <div className="bg-gradient-to-b from-white to-white/60 bg-clip-text text-[12rem] font-black leading-none tabular-nums text-transparent md:text-[16rem]">
-          {display}
+
+      <div
+        className={`flex w-full items-center justify-center gap-10 ${
+          current ? "flex-row" : "flex-col"
+        }`}
+      >
+        <div className="rounded-[3rem] border border-brand-gold/20 bg-black/40 px-20 py-6 shadow-[0_0_80px_rgba(232,185,35,0.15)]">
+          <p className="text-2xl uppercase tracking-[0.3em] text-brand-cream/50">
+            Votes received
+          </p>
+          <div className="bg-gradient-to-b from-brand-cream to-brand-champagne/70 bg-clip-text text-[10rem] font-black leading-none tabular-nums text-transparent md:text-[13rem]">
+            {display}
+          </div>
         </div>
+
+        {current && (
+          <div className="w-[26rem] max-w-[38vw]">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current.id}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6 }}
+                className="overflow-hidden rounded-3xl border-2 border-brand-gold/40 bg-black/40 shadow-2xl"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={current.photo_url!}
+                  alt={current.name}
+                  className="aspect-square w-full object-cover"
+                />
+                <p className="truncate p-4 font-display text-3xl font-bold text-brand-champagne">
+                  {current.name}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+            {photos.length > 1 && (
+              <div className="mt-3 flex justify-center gap-2">
+                {photos.map((p, i) => (
+                  <span
+                    key={p.id}
+                    className={`h-2 w-2 rounded-full ${
+                      i === photoIdx % photos.length
+                        ? "bg-brand-gold"
+                        : "bg-brand-gold/25"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
       {isOpen ? (
         <p className="kb-pulse text-3xl font-semibold text-brand-gold">
           📱 Scan your card &amp; vote now!
         </p>
       ) : (
-        <p className="text-3xl font-semibold text-white/50">
+        <p className="text-3xl font-semibold text-brand-cream/50">
           Results coming up shortly…
         </p>
       )}
@@ -289,7 +412,15 @@ function ResultsView({
   const winnerIds = new Set(winners.map((r) => r.id));
   const max = Math.max(1, topVotes);
   const display = results ? [...results].sort((a, b) => a.id - b.id) : [];
-  const revealSeconds = display.length * 0.9;
+  // Staged reveal: bars fill from LAST place upward, winner's bar last —
+  // built-in drama for the MC. Rows stay in stable order; only the
+  // animation timing follows the ranking.
+  const STAGE = 1.4;
+  const ascending = [...sorted].reverse();
+  const delayFor = new Map<number, number>(
+    ascending.map((r, i) => [r.id, i * STAGE])
+  );
+  const revealSeconds = Math.max(0, (display.length - 1) * STAGE) + 1.0;
 
   // Depend on stable primitives, not the array reference — otherwise every
   // 2.5s poll would cancel the pending confetti timer before it fires.
@@ -325,17 +456,32 @@ function ResultsView({
       exit={{ opacity: 0 }}
       className="w-full max-w-6xl"
     >
-      <h1 className="mb-12 text-6xl font-black text-brand-saffron md:text-7xl">
+      <h1 className="gold-text mb-12 font-display text-6xl font-extrabold md:text-7xl">
         {ROUND_ICON[round]} {ROUND_TITLE[round] ?? ""} — Results
       </h1>
-      <div className="space-y-6">
-        {display.map((r, i) => {
+      <div className="space-y-5">
+        {display.map((r) => {
           const isWinner = winnerIds.has(r.id);
+          const delay = delayFor.get(r.id) ?? 0;
           return (
             <div key={r.id} className="flex items-center gap-5 text-left">
+              {r.photo_url ? (
+                <motion.img
+                  src={r.photo_url}
+                  alt=""
+                  initial={{ opacity: 0.35 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay }}
+                  className={`h-16 w-16 flex-none rounded-xl border object-cover ${
+                    isWinner ? "border-brand-gold" : "border-white/15"
+                  }`}
+                />
+              ) : (
+                <div className="h-16 w-16 flex-none rounded-xl border border-white/10 bg-white/5" />
+              )}
               <span
-                className={`w-72 truncate text-4xl font-bold md:w-96 ${
-                  isWinner ? "text-brand-gold" : "text-white"
+                className={`w-64 truncate text-4xl font-bold md:w-80 ${
+                  isWinner ? "text-brand-gold" : "text-brand-cream"
                 }`}
               >
                 {isWinner && "👑 "}
@@ -345,7 +491,7 @@ function ResultsView({
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${(r.votes / max) * 100}%` }}
-                  transition={{ delay: i * 0.9, duration: 0.8, ease: "easeOut" }}
+                  transition={{ delay, duration: 0.8, ease: "easeOut" }}
                   className={`h-full rounded-2xl ${
                     isWinner
                       ? "bg-gradient-to-r from-brand-gold via-amber-400 to-brand-saffron shadow-lg shadow-amber-500/50"
@@ -356,7 +502,7 @@ function ResultsView({
               <motion.span
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.9 + 0.7 }}
+                transition={{ delay: delay + 0.7 }}
                 className="w-28 text-right text-5xl font-black tabular-nums"
               >
                 {r.votes}
@@ -372,7 +518,7 @@ function ResultsView({
           transition={{ delay: revealSeconds + 0.3, type: "spring", bounce: 0.4 }}
           className="mt-14 inline-block rounded-3xl border-2 border-brand-gold/60 bg-gradient-to-r from-brand-gold/20 to-brand-saffron/10 px-16 py-6"
         >
-          <p className="text-6xl font-black text-brand-gold md:text-7xl">
+          <p className="font-display text-6xl font-extrabold text-brand-gold md:text-7xl">
             🏆 {isTie ? "It's a tie! " : ""}
             {winners.map((w) => w.name).join(" & ")} 🏆
           </p>
@@ -436,7 +582,7 @@ function RaffleView({ raffle }: { raffle: Raffle | null }) {
       )}
       {raffle && (
         <>
-          <h1 className="text-7xl font-black text-brand-saffron md:text-8xl">
+          <h1 className="gold-text font-display text-7xl font-extrabold md:text-8xl">
             {raffle.prize_name.toLowerCase().includes("flight") ? "✈️" : "🧺"}{" "}
             {raffle.prize_name}
           </h1>

@@ -7,7 +7,15 @@
 }
 
 body {
-  @apply bg-brand-navy text-white antialiased;
+  @apply bg-brand-navy text-brand-cream antialiased;
+}
+
+/* Poster-style gold lettering */
+.gold-text {
+  @apply bg-gradient-to-b from-brand-champagne via-brand-gold to-[#b8860b] bg-clip-text text-transparent;
+}
+.warm-bg {
+  @apply bg-gradient-to-b from-[#35190a] via-brand-navy to-[#0b0402];
 }
 
 .btn {

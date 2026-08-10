@@ -35,6 +35,20 @@ export async function GET(
   const statuses = await getRoundStatuses();
   const logoUrl = (await getSettings(["logo_url"]))["logo_url"] ?? null;
 
+  // Best-effort: works whether or not the optional phone column exists,
+  // so the voting flow can never depend on the v9 migration.
+  let hasPhone = true; // default true = don't show the ask if unsure
+  try {
+    const { data: p, error: pErr } = await db()
+      .from("tokens")
+      .select("phone")
+      .eq("id", token.id)
+      .maybeSingle();
+    if (!pErr) hasPhone = !!(p as { phone?: string } | null)?.phone;
+  } catch {
+    /* column may not exist yet — skip the ask */
+  }
+
   const { data: votes } = await db()
     .from("votes")
     .select("round")
@@ -71,6 +85,7 @@ export async function GET(
       open_round: openRound ?? null,
       entries,
       logo_url: logoUrl,
+      has_phone: hasPhone,
     },
     { headers: { "Cache-Control": "no-store" } }
   );

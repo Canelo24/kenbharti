@@ -16,6 +16,7 @@ type VoterState = {
   open_round?: Round | null;
   entries?: Entry[];
   logo_url?: string | null;
+  has_phone?: boolean;
 };
 
 const ROUND_NO: Record<Round, string> = { rangoli: "ROUND 1", dance: "ROUND 2" };
@@ -199,7 +200,7 @@ export default function VoterClient({ slug }: { slug: string }) {
     const needName = !!state.needs_name;
     const nameOk = !needName || name.trim().length >= 2;
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#141a3d] via-brand-navy to-[#05070f]">
+      <div className="warm-bg min-h-screen">
         <TricolorBar />
         <main className="mx-auto max-w-md px-4 pb-40 pt-4">
           <header className="mb-5">
@@ -213,7 +214,7 @@ export default function VoterClient({ slug }: { slug: string }) {
               <p className="text-xs font-black uppercase tracking-[0.3em] text-brand-gold">
                 {ROUND_NO[openRound]} · voting open
               </p>
-              <h1 className="mt-1 text-3xl font-extrabold">
+              <h1 className="gold-text mt-1 font-display text-3xl font-extrabold">
                 {ROUND_ICON[openRound]} {ROUND_LABEL[openRound]}
               </h1>
               <p className="mt-1 text-sm text-white/60">
@@ -277,7 +278,7 @@ export default function VoterClient({ slug }: { slug: string }) {
           </div>
 
           {/* Sticky confirm bar */}
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0a0f24]/95 px-4 pb-6 pt-4 backdrop-blur-md">
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-gold/15 bg-[#150a04]/95 px-4 pb-6 pt-4 backdrop-blur-md">
             <div className="mx-auto max-w-md">
               {needName && selected && (
                 <input
@@ -304,9 +305,9 @@ export default function VoterClient({ slug }: { slug: string }) {
 
           {confirming && selected && (
             <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center">
-              <div className="w-full max-w-md rounded-3xl border border-brand-saffron/40 bg-gradient-to-b from-[#1a2148] to-brand-navy p-6 shadow-2xl">
+              <div className="w-full max-w-md rounded-3xl border border-brand-gold/40 bg-gradient-to-b from-[#33180a] to-brand-navy p-6 shadow-2xl">
                 <p className="text-center text-4xl">{ROUND_ICON[openRound]}</p>
-                <h2 className="mt-2 text-center text-2xl font-extrabold">
+                <h2 className="mt-2 text-center font-display text-2xl font-extrabold">
                   Vote for {selected.name}?
                 </h2>
                 <p className="mt-2 text-center text-sm text-white/60">
@@ -366,7 +367,9 @@ export default function VoterClient({ slug }: { slug: string }) {
         <div className="flex h-24 w-24 animate-[kb-pop_0.5s_ease-out] items-center justify-center rounded-full bg-gradient-to-b from-green-400 to-green-600 text-5xl shadow-2xl shadow-green-500/40">
           ✓
         </div>
-        <h1 className="mt-5 text-3xl font-extrabold">Vote received!</h1>
+        <h1 className="mt-5 font-display text-3xl font-extrabold">
+          Vote received!
+        </h1>
         {openRound && (
           <p className="mt-1 text-sm text-white/50">
             {ROUND_NO[openRound]} · {ROUND_LABEL[openRound]}
@@ -380,6 +383,7 @@ export default function VoterClient({ slug }: { slug: string }) {
             Keep your card safe — winners are announced on the big screen.
           </p>
         </div>
+        {!state.has_phone && <PhoneForm slug={slug} />}
         <p className="mt-6 text-sm text-white/40">
           This page updates automatically when the next round opens.
         </p>
@@ -423,10 +427,13 @@ export default function VoterClient({ slug }: { slug: string }) {
   // ---------- WELCOME ----------
   return (
     <Shell logo={logo} code={state.display_code}>
-      <h1 className="bg-gradient-to-r from-brand-saffron via-white to-brand-green bg-clip-text text-4xl font-extrabold text-transparent">
+      <h1 className="gold-text font-display text-4xl font-extrabold">
         Maa Tujhe Salaam
       </h1>
-      <p className="mt-1 text-sm uppercase tracking-[0.3em] text-white/40">
+      <p className="mt-1 font-display text-lg italic text-brand-champagne/80">
+        18th Edition
+      </p>
+      <p className="mt-1 text-xs uppercase tracking-[0.3em] text-white/40">
         Kenbharti Centre · Nairobi
       </p>
       <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 px-6 py-5">
@@ -436,6 +443,77 @@ export default function VoterClient({ slug }: { slug: string }) {
         </p>
       </div>
     </Shell>
+  );
+}
+
+// Optional, entirely separate from voting — shown after the receipt only.
+function PhoneForm({ slug }: { slug: string }) {
+  const [phone, setPhone] = useState("");
+  const [status, setStatus] = useState<"idle" | "busy" | "done" | "error">(
+    "idle"
+  );
+  const [message, setMessage] = useState("");
+
+  if (status === "done") {
+    return (
+      <div className="mt-4 w-full rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-4">
+        <p className="font-semibold text-green-300">
+          ✓ Number saved — we&apos;ll call if you win!
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-left">
+      <p className="text-sm font-bold">
+        📞 Leave your number <span className="text-white/40">(optional)</span>
+      </p>
+      <p className="mt-0.5 text-xs text-white/50">
+        So we can reach you if you win the raffle.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <input
+          className="input flex-1"
+          type="tel"
+          inputMode="tel"
+          placeholder="07XX XXX XXX"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+        <button
+          className="btn-primary px-5 text-sm"
+          disabled={status === "busy" || phone.trim().length < 7}
+          onClick={async () => {
+            setStatus("busy");
+            setMessage("");
+            try {
+              const res = await fetch("/api/contact", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slug, phone: phone.trim() }),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok) setStatus("done");
+              else {
+                setStatus("error");
+                setMessage(data.error ?? "Could not save — try again");
+              }
+            } catch {
+              setStatus("error");
+              setMessage("Network problem — try again");
+            }
+          }}
+        >
+          {status === "busy" ? "…" : "Save"}
+        </button>
+      </div>
+      {message && <p className="mt-2 text-xs text-red-300">{message}</p>}
+      <p className="mt-3 text-[10px] leading-relaxed text-white/35">
+        By sharing your number you agree Kenbharti Centre may contact you
+        about this raffle and future community events.
+      </p>
+    </div>
   );
 }
 
@@ -480,7 +558,7 @@ function Shell({
   code?: string;
 }) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#141a3d] via-brand-navy to-[#05070f]">
+    <div className="warm-bg min-h-screen">
       <TricolorBar />
       <main className="mx-auto flex min-h-[calc(100vh-6px)] max-w-md flex-col items-center justify-center p-6 text-center">
         {(logo || code) && (

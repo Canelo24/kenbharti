@@ -34,6 +34,16 @@ export async function GET() {
   };
   const round = roundOf[mode];
 
+  // select('*') keeps this working whether or not the optional
+  // photo_screen_url column (v9 migration) exists yet.
+  type EntryRow = {
+    id: number;
+    name: string;
+    photo_url: string | null;
+    photo_screen_url?: string | null;
+  };
+  const bestPhoto = (e: EntryRow) => e.photo_screen_url || e.photo_url || null;
+
   if (mode === "live_r1" || mode === "live_r2") {
     const { count } = await db()
       .from("votes")
@@ -43,6 +53,20 @@ export async function GET() {
     payload.round = round;
     // Lets the screen switch its badge to "VOTING CLOSED — counter frozen"
     payload.round_status = s[`${round}_status`] ?? "locked";
+
+    // Gallery for the live view: show the audience what they're voting on.
+    // Names + photos only — never vote counts while voting runs.
+    const { data: galleryRows } = await db()
+      .from("entries")
+      .select("*")
+      .eq("round", round)
+      .eq("active", true)
+      .order("sort");
+    payload.gallery = ((galleryRows ?? []) as EntryRow[]).map((e) => ({
+      id: e.id,
+      name: e.name,
+      photo_url: bestPhoto(e),
+    }));
   }
 
   if (mode === "results_r1" || mode === "results_r2") {
@@ -51,7 +75,7 @@ export async function GET() {
     if (status === "revealed") {
       const { data: entries } = await db()
         .from("entries")
-        .select("id, name, photo_url, sort")
+        .select("*")
         .eq("round", round)
         .eq("active", true)
         .order("sort");
@@ -63,10 +87,10 @@ export async function GET() {
       for (const v of votes ?? []) {
         counts.set(v.entry_id, (counts.get(v.entry_id) ?? 0) + 1);
       }
-      payload.results = (entries ?? []).map((e) => ({
+      payload.results = ((entries ?? []) as EntryRow[]).map((e) => ({
         id: e.id,
         name: e.name,
-        photo_url: e.photo_url,
+        photo_url: bestPhoto(e),
         votes: counts.get(e.id) ?? 0,
       }));
     } else {

@@ -8,9 +8,16 @@ const config: Config = {
         brand: {
           saffron: "#FF9933",
           green: "#138808",
-          navy: "#0b1026",
+          // Poster-matched deep cocoa replaces the old navy everywhere
+          navy: "#241207",
           gold: "#e8b923",
+          champagne: "#f7d778",
+          cream: "#f8eeda",
         },
+      },
+      fontFamily: {
+        display: ["var(--font-display)", "Georgia", "serif"],
+        sans: ["var(--font-body)", "system-ui", "sans-serif"],
       },
     },
   },

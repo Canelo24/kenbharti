@@ -14,7 +14,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#141a3d] via-brand-navy to-[#05070f]">
+    <div className="warm-bg min-h-screen">
       <div className="flex h-1.5 w-full">
         <div className="flex-1 bg-brand-saffron" />
         <div className="flex-1 bg-white" />
@@ -33,10 +33,13 @@ export default async function Home() {
         ) : (
           <div className="text-7xl">🦋</div>
         )}
-        <h1 className="mt-6 bg-gradient-to-r from-brand-saffron via-white to-brand-green bg-clip-text text-5xl font-extrabold text-transparent">
+        <h1 className="gold-text mt-6 font-display text-5xl font-extrabold">
           Maa Tujhe Salaam
         </h1>
-        <p className="mt-2 text-sm font-semibold uppercase tracking-[0.35em] text-brand-gold/80">
+        <p className="mt-1 font-display text-xl italic text-brand-champagne/80">
+          18th Edition
+        </p>
+        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.35em] text-brand-gold/70">
           Kenbharti Centre · Nairobi
         </p>
 

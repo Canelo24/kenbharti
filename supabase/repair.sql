@@ -67,6 +67,10 @@ create table if not exists draws (
             check (status in ('pending_claim','claimed','redrawn'))
 );
 
+-- v9 additive columns (safe if they already exist)
+alter table tokens  add column if not exists phone text;
+alter table entries add column if not exists photo_screen_url text;
+
 create index if not exists votes_round_idx on votes (round);
 create index if not exists votes_entry_idx on votes (round, entry_id);
 create index if not exists tokens_display_idx on tokens (display_code);
