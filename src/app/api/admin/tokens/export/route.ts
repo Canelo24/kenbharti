@@ -46,6 +46,35 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Community contact list: card, name (captured at first vote), phone
+  // (left voluntarily on the receipt screen). select('*') keeps this
+  // working whether or not the v9 phone column exists.
+  if (format === "contacts") {
+    const { data: rows } = await db()
+      .from("tokens")
+      .select("*")
+      .not("display_code", "like", "KB-TEST%")
+      .order("display_code");
+    const lines = ["display_code,name,phone"];
+    for (const t of (rows ?? []) as {
+      display_code: string;
+      holder_name?: string | null;
+      phone?: string | null;
+    }[]) {
+      if (!t.holder_name && !t.phone) continue;
+      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+      lines.push(
+        `${t.display_code},${esc(t.holder_name ?? "")},${esc(t.phone ?? "")}`
+      );
+    }
+    return new NextResponse(lines.join("\n"), {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": 'attachment; filename="contacts.csv"',
+      },
+    });
+  }
+
   if (format === "pdf") {
     const from = Number(req.nextUrl.searchParams.get("from") ?? 1);
     const to = Number(req.nextUrl.searchParams.get("to") ?? tokens.length);
