@@ -84,7 +84,7 @@ export async function buildQrPdf(tokens, baseUrl) {
     });
 
     // Event title
-    page.drawText("MAA TUJHE SALAAM", {
+    page.drawText("MAA TUJHE SALAM", {
       x: x0 + 20,
       y: y0 + cardH - 32,
       size: 13,

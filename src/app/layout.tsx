@@ -17,7 +17,7 @@ const body = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Maa Tujhe Salaam — Kenbharti",
+  title: "Maa Tujhe Salam — Kenbharti",
   description: "Live voting and raffle",
 };
 

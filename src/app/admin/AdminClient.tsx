@@ -192,7 +192,7 @@ export default function AdminClient() {
               🎛️ Control Room
             </h1>
             <p className="text-xs text-white/50">
-              Maa Tujhe Salaam · {APP_VERSION}
+              Maa Tujhe Salam · {APP_VERSION}
               {ov.fp ? ` · db ${ov.fp}` : ""} ·{" "}
               <span className={ageSeconds > 15 ? "font-bold text-red-400" : ""}>
                 updated {ageSeconds}s ago

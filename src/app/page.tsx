@@ -34,7 +34,7 @@ export default async function Home() {
           <div className="text-7xl">🦋</div>
         )}
         <h1 className="gold-text mt-6 font-display text-5xl font-extrabold">
-          Maa Tujhe Salaam
+          Maa Tujhe Salam
         </h1>
         <p className="mt-1 font-display text-xl italic text-brand-champagne/80">
           18th Edition

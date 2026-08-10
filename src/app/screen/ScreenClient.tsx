@@ -117,7 +117,7 @@ export default function ScreenClient() {
               KENBHARTI
             </p>
             <p className="text-sm tracking-[0.2em] text-white/40">
-              MAA TUJHE SALAAM
+              MAA TUJHE SALAM
             </p>
           </div>
         </div>
@@ -197,7 +197,7 @@ function IdleView({ logo }: { logo?: string | null }) {
       </div>
       <div>
         <h1 className="gold-text font-display text-8xl font-extrabold leading-tight drop-shadow-[0_2px_20px_rgba(232,185,35,0.25)] md:text-9xl">
-          Maa Tujhe Salaam
+          Maa Tujhe Salam
         </h1>
         <p className="mt-2 font-display text-4xl italic text-brand-champagne/90">
           18th Edition

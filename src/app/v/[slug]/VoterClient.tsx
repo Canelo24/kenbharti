@@ -459,7 +459,7 @@ export default function VoterClient({ slug }: { slug: string }) {
   return (
     <Shell logo={logo} code={state.display_code}>
       <h1 className="gold-text font-display text-4xl font-extrabold">
-        Maa Tujhe Salaam
+        Maa Tujhe Salam
       </h1>
       <p className="mt-1 font-display text-lg italic text-brand-champagne/80">
         18th Edition

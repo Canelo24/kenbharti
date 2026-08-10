@@ -35,7 +35,7 @@ export default function LoginForm() {
       <h1 className="mb-1 text-2xl font-bold text-brand-saffron">
         Control Room
       </h1>
-      <p className="mb-6 text-white/60">Maa Tujhe Salaam — admin</p>
+      <p className="mb-6 text-white/60">Maa Tujhe Salam — admin</p>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <input
           type="password"
