@@ -1467,6 +1467,12 @@ function TokensSection({
               📞 contacts.csv — names &amp; phone numbers collected
             </a>
             <a
+              className="btn-ghost col-span-2 py-2.5 text-center text-sm"
+              href="/api/admin/tokens/export?format=audit"
+            >
+              🧾 vote-audit.csv — who voted for what, with time (for disputes)
+            </a>
+            <a
               className="btn-primary col-span-2 py-2.5 text-center text-sm"
               href="/api/admin/tokens/export?format=pdf"
             >

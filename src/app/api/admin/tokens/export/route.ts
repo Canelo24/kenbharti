@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, fetchAllRows } from "@/lib/db";
 import { buildCsv, buildQrPdf } from "@/lib/tokengen.mjs";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +71,62 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": "text/csv",
         "Content-Disposition": 'attachment; filename="contacts.csv"',
+      },
+    });
+  }
+
+  // Full audit trail for participant verification: card -> name -> phone
+  // -> what they voted for in each round, with timestamps. This is the
+  // dispute-resolution record ("look, this card voted for X at 19:42").
+  if (format === "audit") {
+    const { data: tokenRows } = await db()
+      .from("tokens")
+      .select("*")
+      .not("display_code", "like", "KB-TEST%");
+    const tokenById = new Map(
+      ((tokenRows ?? []) as {
+        id: string;
+        display_code: string;
+        holder_name?: string | null;
+        phone?: string | null;
+      }[]).map((t) => [t.id, t])
+    );
+    const { data: entryRows } = await db().from("entries").select("id, name");
+    const entryName = new Map(
+      (entryRows ?? []).map((e) => [e.id as number, e.name as string])
+    );
+    const votes = await fetchAllRows<{
+      token_id: string;
+      round: string;
+      entry_id: number;
+      created_at: string;
+    }>("votes", "token_id, round, entry_id, created_at");
+
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const lines = ["display_code,name,phone,round,voted_for,voted_at"];
+    const sortedVotes = [...votes].sort((a, b) => {
+      const ta = tokenById.get(a.token_id)?.display_code ?? "";
+      const tb = tokenById.get(b.token_id)?.display_code ?? "";
+      return ta.localeCompare(tb) || a.round.localeCompare(b.round);
+    });
+    for (const v of sortedVotes) {
+      const t = tokenById.get(v.token_id);
+      if (!t) continue;
+      lines.push(
+        [
+          t.display_code,
+          esc(t.holder_name ?? ""),
+          esc(t.phone ?? ""),
+          v.round,
+          esc(entryName.get(v.entry_id) ?? `entry #${v.entry_id}`),
+          v.created_at,
+        ].join(",")
+      );
+    }
+    return new NextResponse(lines.join("\n"), {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": 'attachment; filename="vote-audit.csv"',
       },
     });
   }

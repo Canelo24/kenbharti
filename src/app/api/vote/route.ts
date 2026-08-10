@@ -10,7 +10,13 @@ export const revalidate = 0;
 // UNIQUE (token_id, round) constraint and returns the calm
 // "already voted" receipt — never an error page.
 export async function POST(req: NextRequest) {
-  let body: { slug?: string; round?: string; entry_id?: number; name?: string };
+  let body: {
+    slug?: string;
+    round?: string;
+    entry_id?: number;
+    name?: string;
+    phone?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -19,6 +25,8 @@ export async function POST(req: NextRequest) {
 
   const { slug, round, entry_id } = body;
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
+  const phone =
+    typeof body.phone === "string" ? body.phone.trim().slice(0, 25) : "";
 
   if (!slug || !round || !isRound(round) || !Number.isInteger(entry_id)) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
@@ -56,9 +64,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid entry" }, { status: 400 });
   }
 
-  // 4. Save holder name on first vote (for the raffle display)
-  if (!token.holder_name && name) {
-    await db().from("tokens").update({ holder_name: name }).eq("id", token.id);
+  // 4. Save holder name/phone captured with the ballot. Best-effort by
+  //    design: a vote must NEVER fail because of contact-info issues.
+  const info: Record<string, unknown> = {};
+  if (!token.holder_name && name) info.holder_name = name;
+  if (phone) info.phone = phone;
+  if (Object.keys(info).length > 0) {
+    const { error: infoErr } = await db()
+      .from("tokens")
+      .update(info)
+      .eq("id", token.id);
+    if (infoErr && "phone" in info) {
+      // phone column may not exist yet (v9 migration) — retry without it
+      delete info.phone;
+      if (Object.keys(info).length > 0) {
+        await db().from("tokens").update(info).eq("id", token.id);
+      }
+    }
   }
 
   // 5. Insert the vote. The DB constraint is the one-vote-per-round law.

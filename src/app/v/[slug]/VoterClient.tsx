@@ -31,6 +31,7 @@ export default function VoterClient({ slug }: { slug: string }) {
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState<Entry | null>(null);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [justVoted, setJustVoted] = useState(false);
@@ -110,6 +111,7 @@ export default function VoterClient({ slug }: { slug: string }) {
           round: state.open_round,
           entry_id: selected.id,
           name: state.needs_name ? name.trim() : undefined,
+          phone: !state.has_phone ? phone.trim() : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -122,6 +124,7 @@ export default function VoterClient({ slug }: { slug: string }) {
             ? {
                 ...s,
                 needs_name: false,
+                has_phone: s.has_phone || phone.trim().length > 0,
                 voted: [...(s.voted ?? []), s.open_round as Round],
               }
             : s
@@ -198,7 +201,11 @@ export default function VoterClient({ slug }: { slug: string }) {
   // ---------- BALLOT ----------
   if (openRound && !voted.includes(openRound)) {
     const needName = !!state.needs_name;
+    const needPhone = state.has_phone === false;
     const nameOk = !needName || name.trim().length >= 2;
+    const phoneOk =
+      !needPhone || phone.replace(/[^\d]/g, "").length >= 7;
+    const detailsOk = nameOk && phoneOk;
     return (
       <div className="warm-bg min-h-screen">
         <TricolorBar />
@@ -280,25 +287,49 @@ export default function VoterClient({ slug }: { slug: string }) {
           {/* Sticky confirm bar */}
           <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-gold/15 bg-[#150a04]/95 px-4 pb-6 pt-4 backdrop-blur-md">
             <div className="mx-auto max-w-md">
-              {needName && selected && (
-                <input
-                  className="input mb-3"
-                  placeholder="Your full name — needed for the raffle 🎁"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="name"
-                />
+              {(needName || needPhone) && selected && (
+                <div className="mb-3 space-y-2">
+                  {needName && (
+                    <input
+                      className="input"
+                      placeholder="Your full name — needed for the raffle 🎁"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      autoComplete="name"
+                    />
+                  )}
+                  {needPhone && (
+                    <>
+                      <input
+                        className="input"
+                        type="tel"
+                        inputMode="tel"
+                        placeholder="Phone number, e.g. 07XX XXX XXX"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        autoComplete="tel"
+                      />
+                      <p className="text-[10px] leading-relaxed text-white/35">
+                        By sharing your number you agree Kenbharti Centre may
+                        contact you about this raffle and future community
+                        events.
+                      </p>
+                    </>
+                  )}
+                </div>
               )}
               <button
                 className="btn-primary w-full py-4 text-lg"
-                disabled={!selected || !nameOk}
+                disabled={!selected || !detailsOk}
                 onClick={() => setConfirming(true)}
               >
                 {!selected
                   ? "👆 Select an entry above"
                   : !nameOk
                     ? "Enter your name to continue"
-                    : `Vote for ${selected.name} →`}
+                    : !phoneOk
+                      ? "Enter your phone number to continue"
+                      : `Vote for ${selected.name} →`}
               </button>
             </div>
           </div>
