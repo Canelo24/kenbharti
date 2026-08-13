@@ -31,9 +31,16 @@ export async function computePool(
   let candidates = tokens ?? [];
 
   if (poolMode === "voted") {
-    // Paginated: votes can exceed Supabase's 1000-row response cap
-    const votes = await fetchAllRows<{ token_id: string }>("votes", "token_id");
-    const votedIds = new Set(votes.map((v) => v.token_id));
+    // Paginated: votes can exceed Supabase's 1000-row response cap.
+    // REAL rounds only — the warm-up quiz must not qualify anyone for
+    // the "you must vote to win" prizes.
+    const votes = await fetchAllRows<{ token_id: string; round: string }>(
+      "votes",
+      "token_id, round"
+    );
+    const votedIds = new Set(
+      votes.filter((v) => v.round !== "practice").map((v) => v.token_id)
+    );
     candidates = candidates.filter((t) => votedIds.has(t.id));
   } else {
     candidates = candidates.filter((t) => inRanges(t.display_code, ranges));

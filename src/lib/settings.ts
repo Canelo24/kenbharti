@@ -1,12 +1,19 @@
 import { db } from "./db";
 
 export type RoundStatus = "locked" | "open" | "closed" | "revealed";
-export type Round = "rangoli" | "dance";
+// 'practice' is the optional audience warm-up quiz. It behaves like a
+// round but never counts as a real competition result, and its votes can
+// be cleared and re-run. The two real rounds are unaffected by it.
+export type Round = "rangoli" | "dance" | "practice";
+export type RealRound = "rangoli" | "dance";
 
-export const ROUNDS: Round[] = ["rangoli", "dance"];
+export const ROUNDS: Round[] = ["practice", "rangoli", "dance"];
+export const REAL_ROUNDS: RealRound[] = ["rangoli", "dance"];
 
 export const SCREEN_MODES = [
   "idle",
+  "live_practice",
+  "results_practice",
   "live_r1",
   "results_r1",
   "live_r2",
@@ -34,15 +41,20 @@ export async function setSetting(key: string, value: string): Promise<void> {
 }
 
 export async function getRoundStatuses(): Promise<Record<Round, RoundStatus>> {
-  const s = await getSettings(["rangoli_status", "dance_status"]);
+  const s = await getSettings([
+    "rangoli_status",
+    "dance_status",
+    "practice_status",
+  ]);
   return {
     rangoli: (s["rangoli_status"] ?? "locked") as RoundStatus,
     dance: (s["dance_status"] ?? "locked") as RoundStatus,
+    practice: (s["practice_status"] ?? "locked") as RoundStatus,
   };
 }
 
 export function isRound(v: string): v is Round {
-  return v === "rangoli" || v === "dance";
+  return v === "rangoli" || v === "dance" || v === "practice";
 }
 
 export function isScreenMode(v: string): v is ScreenMode {

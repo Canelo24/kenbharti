@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getRoundStatuses, getSettings, Round } from "@/lib/settings";
+import { getRoundStatuses, getSettings, Round, ROUNDS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -55,12 +55,10 @@ export async function GET(
     .eq("token_id", token.id);
   const votedRounds = (votes ?? []).map((v) => v.round as Round);
 
-  // Prefer an open round the token hasn't voted in yet, so even if both
+  // Prefer an open round the token hasn't voted in yet, so even if two
   // rounds are ever open simultaneously a voter is never stuck on the
   // receipt while a ballot they could use exists.
-  const openRounds = (["rangoli", "dance"] as Round[]).filter(
-    (r) => statuses[r] === "open"
-  );
+  const openRounds = ROUNDS.filter((r) => statuses[r] === "open");
   const openRound =
     openRounds.find((r) => !votedRounds.includes(r)) ?? openRounds[0];
 

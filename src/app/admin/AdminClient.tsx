@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "@/lib/version";
 import { useWakeRefresh } from "@/lib/useWakeRefresh";
 
-type Round = "rangoli" | "dance";
+type Round = "rangoli" | "dance" | "practice";
 type Entry = {
   id: number;
   round: Round;
@@ -43,8 +43,13 @@ type TokenRow = {
 const ROUND_LABEL: Record<Round, string> = {
   rangoli: "Round 1 · Rangoli",
   dance: "Round 2 · Dance",
+  practice: "Practice question",
 };
-const ROUND_ICON: Record<Round, string> = { rangoli: "🎨", dance: "💃" };
+const ROUND_ICON: Record<Round, string> = {
+  rangoli: "🎨",
+  dance: "💃",
+  practice: "❓",
+};
 const STATUS_STYLE: Record<string, string> = {
   locked: "bg-white/10 text-white/60",
   open: "bg-green-500/90 text-white shadow shadow-green-500/40",
@@ -53,6 +58,8 @@ const STATUS_STYLE: Record<string, string> = {
 };
 const SCREEN_BUTTONS: { mode: string; label: string; icon: string }[] = [
   { mode: "idle", label: "Idle / branding", icon: "🏠" },
+  { mode: "live_practice", label: "Live count · Practice", icon: "❓" },
+  { mode: "results_practice", label: "Results · Practice", icon: "📊" },
   { mode: "live_r1", label: "Live count · Rangoli", icon: "🎨" },
   { mode: "results_r1", label: "Results · Rangoli", icon: "🏆" },
   { mode: "live_r2", label: "Live count · Dance", icon: "💃" },
@@ -60,6 +67,7 @@ const SCREEN_BUTTONS: { mode: string; label: string; icon: string }[] = [
   { mode: "raffle", label: "Raffle", icon: "🎁" },
 ];
 const NAV = [
+  { id: "practice", label: "Warm-up", icon: "❓" },
   { id: "rounds", label: "Rounds", icon: "🗳️" },
   { id: "screen", label: "Screen", icon: "📺" },
   { id: "entries", label: "Entries", icon: "🖼️" },
@@ -255,6 +263,13 @@ export default function AdminClient() {
       <div className="space-y-5">
         <NextStepBanner ov={ov} />
         <SystemCheckSection />
+        <PracticeSection
+          ov={ov}
+          post={post}
+          busy={busy}
+          showToast={showToast}
+          refresh={refresh}
+        />
         <RoundsSection ov={ov} post={post} busy={busy} showToast={showToast} />
         <ScreenSection ov={ov} post={post} busy={busy} />
         <BrandingSection ov={ov} refresh={refresh} showToast={showToast} />
@@ -314,7 +329,18 @@ function nextStep(ov: Overview): { icon: string; text: string } {
   const mode = s["screen_mode"] ?? "idle";
   const r1 = s["rangoli_status"] ?? "locked";
   const r2 = s["dance_status"] ?? "locked";
+  const pr = s["practice_status"] ?? "locked";
   const prizesLeft = ov.prizes.filter((p) => p.status !== "claimed").length;
+
+  // Practice guidance only while a practice question is actually running
+  if (pr === "open" && mode !== "live_practice")
+    return { icon: "📺", text: "Practice is open — put the projector on '❓ Live count · Practice'" };
+  if (pr === "open")
+    return { icon: "⏳", text: "Practice question running. When most have voted: Warm-up → Close" };
+  if (pr === "closed")
+    return { icon: "📊", text: "Practice closed — press Show to display how the room voted" };
+  if (pr === "revealed")
+    return { icon: "🧹", text: "Practice shown. Next question? Warm-up → Clear practice votes. Finished warming up? Move on to Rounds → Rangoli → Open" };
 
   if (r1 === "locked")
     return { icon: "1️⃣", text: "When the MC announces Rangoli voting: Rounds → Rangoli → Open" };
@@ -462,6 +488,157 @@ function SystemCheckSection() {
   );
 }
 
+// ---------------- Practice (audience warm-up quiz) ----------------
+
+function PracticeSection({
+  ov,
+  post,
+  busy,
+  showToast,
+  refresh,
+}: {
+  ov: Overview;
+  post: (u: string, b: unknown) => Promise<boolean>;
+  busy: boolean;
+  showToast: (m: string) => void;
+  refresh: () => Promise<void>;
+}) {
+  const status = ov.settings["practice_status"] ?? "locked";
+  const options = ov.entries.filter((e) => e.round === "practice");
+  const tallies = (ov.tallies.practice ?? []).filter((t) =>
+    options.some((o) => o.id === t.entry_id && o.active)
+  );
+  const total = tallies.reduce((s, t) => s + t.votes, 0);
+  const maxVotes = Math.max(1, ...tallies.map((t) => t.votes));
+  const [clearing, setClearing] = useState(false);
+
+  return (
+    <section id="practice" className="card scroll-mt-32 border-blue-400/25">
+      <SectionTitle
+        icon="❓"
+        title="Practice question (warm-up)"
+        sub="Optional. Runs exactly like a real round but never counts as a result — and you can clear it and run it again for each question."
+      />
+
+      <div className="rounded-2xl border border-white/5 bg-black/25 p-4">
+        <div className="flex items-center justify-between">
+          <span className="font-bold">
+            ❓ {options.length} option{options.length === 1 ? "" : "s"} loaded
+          </span>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wider ${
+              STATUS_STYLE[status] ?? ""
+            }`}
+          >
+            {status}
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <button
+            className="btn-primary py-2.5 text-sm"
+            disabled={busy || status !== "locked" || options.length < 2}
+            onClick={async () => {
+              if (
+                await post("/api/admin/round", {
+                  round: "practice",
+                  action: "open",
+                })
+              ) {
+                showToast(
+                  "✅ Practice open — now press '❓ Live count · Practice' in Projector 👇"
+                );
+              }
+            }}
+          >
+            ▶ Open
+          </button>
+          <button
+            className="btn-ghost py-2.5 text-sm"
+            disabled={busy || status !== "open"}
+            onClick={() =>
+              post("/api/admin/round", { round: "practice", action: "close" })
+            }
+          >
+            ⏸ Close
+          </button>
+          <button
+            className="btn-ghost py-2.5 text-sm"
+            disabled={busy || status !== "closed"}
+            onClick={() =>
+              post("/api/admin/round", { round: "practice", action: "reveal" })
+            }
+          >
+            📊 Show
+          </button>
+        </div>
+
+        {options.length < 2 && (
+          <p className="mt-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-200">
+            Add the answer options below (e.g. Blue / White / Red) before
+            opening.
+          </p>
+        )}
+
+        {total > 0 && (
+          <div className="mt-4 space-y-2">
+            {tallies.map((t) => {
+              const entry = options.find((e) => e.id === t.entry_id)!;
+              return (
+                <div key={t.entry_id} className="flex items-center gap-2 text-sm">
+                  <span className="w-32 truncate">{entry.name}</span>
+                  <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-blue-400/70 transition-all duration-500"
+                      style={{ width: `${(t.votes / maxVotes) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right font-mono text-xs">
+                    {t.votes}
+                  </span>
+                </div>
+              );
+            })}
+            <p className="pt-1 text-right text-xs text-white/40">
+              {total} practice vote{total === 1 ? "" : "s"}
+            </p>
+          </div>
+        )}
+
+        <button
+          className="btn-ghost mt-3 w-full py-2 text-sm text-blue-300"
+          disabled={busy || clearing}
+          onClick={async () => {
+            if (
+              !confirm(
+                "Clear the practice votes and start the next question?\n\nThis erases PRACTICE votes only — real Rangoli and Dance votes can never be touched by this button."
+              )
+            )
+              return;
+            setClearing(true);
+            try {
+              const res = await fetch("/api/admin/practice", { method: "POST" });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok) {
+                showToast("🧹 Practice cleared — edit the options for question 2");
+                await refresh();
+              } else {
+                showToast(`⚠️ ${data.error ?? "Failed"}`);
+              }
+            } catch {
+              showToast("⚠️ Network problem");
+            } finally {
+              setClearing(false);
+            }
+          }}
+        >
+          {clearing ? "⏳ Clearing…" : "🧹 Clear practice votes → next question"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // ---------------- Rounds ----------------
 
 function RoundsSection({
@@ -484,7 +661,7 @@ function RoundsSection({
       />
       <div className="space-y-4">
         {(["rangoli", "dance"] as Round[]).map((round) => {
-          const status = ov.settings[`${round}_status`] ?? "locked";
+          const status: string = ov.settings[`${round}_status`] ?? "locked";
           // Hidden (inactive) entries keep their votes in the DB but are
           // excluded from what the operator sees, so totals stay consistent
           // with the visible bars.
@@ -617,6 +794,7 @@ function ScreenSection({
   const unlocked: Record<string, boolean> = {
     results_r1: ov.settings["rangoli_status"] === "revealed",
     results_r2: ov.settings["dance_status"] === "revealed",
+    results_practice: ov.settings["practice_status"] === "revealed",
   };
   const currentLabel =
     SCREEN_BUTTONS.find((b) => b.mode === current)?.label ?? current;
@@ -812,20 +990,28 @@ function EntriesSection({
       />
 
       <div className="mb-4 flex gap-2 rounded-xl bg-black/25 p-1">
-        {(["rangoli", "dance"] as Round[]).map((r) => (
+        {(["rangoli", "dance", "practice"] as Round[]).map((r) => (
           <button
             key={r}
-            className={`chip flex-1 py-2 ${
+            className={`chip flex-1 py-2 text-xs ${
               round === r
                 ? "bg-brand-saffron text-brand-navy shadow"
                 : "text-white/60 hover:text-white"
             }`}
             onClick={() => setRound(r)}
           >
-            {ROUND_ICON[r]} {r === "rangoli" ? "Rangoli" : "Dance"}
+            {ROUND_ICON[r]}{" "}
+            {r === "rangoli" ? "Rangoli" : r === "dance" ? "Dance" : "Quiz"}
           </button>
         ))}
       </div>
+      {round === "practice" && (
+        <p className="mb-3 rounded-xl border border-blue-400/30 bg-blue-500/10 p-3 text-xs text-blue-100">
+          These are the warm-up quiz answers (e.g. Blue / White / Red). No
+          photos needed. Between questions: clear the practice votes above,
+          then rename these to the next question&apos;s answers.
+        </p>
+      )}
 
       <div className="space-y-2">
         {list.map((e) => (

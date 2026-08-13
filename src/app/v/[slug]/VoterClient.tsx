@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "@/lib/version";
 import { useWakeRefresh } from "@/lib/useWakeRefresh";
 
-type Round = "rangoli" | "dance";
+type Round = "rangoli" | "dance" | "practice";
 type Entry = { id: number; name: string; photo_url: string | null };
 
 type VoterState = {
@@ -19,12 +19,21 @@ type VoterState = {
   has_phone?: boolean;
 };
 
-const ROUND_NO: Record<Round, string> = { rangoli: "ROUND 1", dance: "ROUND 2" };
+const ROUND_NO: Record<Round, string> = {
+  rangoli: "ROUND 1",
+  dance: "ROUND 2",
+  practice: "WARM-UP",
+};
 const ROUND_LABEL: Record<Round, string> = {
   rangoli: "Rangoli Competition",
   dance: "Dance Competition",
+  practice: "Practice Question",
 };
-const ROUND_ICON: Record<Round, string> = { rangoli: "🎨", dance: "💃" };
+const ROUND_ICON: Record<Round, string> = {
+  rangoli: "🎨",
+  dance: "💃",
+  practice: "❓",
+};
 
 export default function VoterClient({ slug }: { slug: string }) {
   const [state, setState] = useState<VoterState | null>(null);
@@ -78,6 +87,8 @@ export default function VoterClient({ slug }: { slug: string }) {
         refresh();
         return;
       }
+      // Keep polling until both REAL rounds are done (a practice vote
+      // never ends the phone's watch for the real rounds).
       const votedAll =
         s.voted && s.voted.includes("rangoli") && s.voted.includes("dance");
       if (votedAll) return;
@@ -422,7 +433,7 @@ export default function VoterClient({ slug }: { slug: string }) {
     );
   }
 
-  // ---------- ALL DONE ----------
+  // ---------- ALL DONE (both REAL rounds) ----------
   if (voted.includes("rangoli") && voted.includes("dance")) {
     return (
       <Shell logo={logo} code={state.display_code}>

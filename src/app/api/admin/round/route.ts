@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { getSettings, isRound, setSetting } from "@/lib/settings";
+import { getSettings, isRound, ROUNDS, setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -32,9 +32,8 @@ export async function POST(req: NextRequest) {
   }
 
   const key = `${round}_status`;
-  const otherRound = round === "rangoli" ? "dance" : "rangoli";
-  const otherKey = `${otherRound}_status`;
-  const settings = await getSettings([key, otherKey]);
+  const others = ROUNDS.filter((r) => r !== round);
+  const settings = await getSettings([key, ...others.map((r) => `${r}_status`)]);
   const current = settings[key] ?? "locked";
   const rule = ALLOWED[action];
   if (!rule.from.includes(current)) {
@@ -46,24 +45,31 @@ export async function POST(req: NextRequest) {
 
   // Only one round may ever be open at a time — otherwise voters get a
   // second ballot straight after the first and it looks like double voting.
-  if (
-    (action === "open" || action === "reopen") &&
-    (settings[otherKey] ?? "locked") === "open"
-  ) {
-    return NextResponse.json(
-      { error: `Close the ${otherRound} round first — only one round can be open at a time` },
-      { status: 409 }
+  if (action === "open" || action === "reopen") {
+    const alreadyOpen = others.find(
+      (r) => (settings[`${r}_status`] ?? "locked") === "open"
     );
+    if (alreadyOpen) {
+      return NextResponse.json(
+        {
+          error: `Close the ${alreadyOpen} round first — only one round can be open at a time`,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   await setSetting(key, rule.to);
 
   // "Reveal on screen" also points the projector at the results.
   if (action === "reveal") {
-    await setSetting(
-      "screen_mode",
-      round === "rangoli" ? "results_r1" : "results_r2"
-    );
+    const mode =
+      round === "rangoli"
+        ? "results_r1"
+        : round === "dance"
+          ? "results_r2"
+          : "results_practice";
+    await setSetting("screen_mode", mode);
   }
 
   return NextResponse.json({ ok: true, status: rule.to });

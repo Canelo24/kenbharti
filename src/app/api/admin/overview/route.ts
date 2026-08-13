@@ -30,6 +30,7 @@ async function buildOverview() {
   const settings = await getSettings([
     "rangoli_status",
     "dance_status",
+    "practice_status",
     "screen_mode",
     "raffle_pool",
     "active_ranges",
@@ -52,6 +53,7 @@ async function buildOverview() {
   const tallies: Record<Round, { entry_id: number; votes: number }[]> = {
     rangoli: [],
     dance: [],
+    practice: [],
   };
   const counts = new Map<string, number>();
   for (const v of votes ?? []) {
@@ -64,8 +66,12 @@ async function buildOverview() {
       .map((e) => ({ entry_id: e.id, votes: counts.get(`${r}:${e.id}`) ?? 0 }));
   }
 
-  // Turnout: distinct tokens that voted vs active tokens
-  const votedTokens = new Set((votes ?? []).map((v) => v.token_id as string));
+  // Turnout counts REAL rounds only — practice votes don't inflate it
+  const votedTokens = new Set(
+    (votes ?? [])
+      .filter((v) => v.round !== "practice")
+      .map((v) => v.token_id as string)
+  );
   const { count: activeTokens } = await db()
     .from("tokens")
     .select("id", { count: "exact", head: true })

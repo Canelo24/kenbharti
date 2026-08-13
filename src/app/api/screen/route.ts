@@ -15,6 +15,7 @@ export async function GET() {
     "screen_mode",
     "rangoli_status",
     "dance_status",
+    "practice_status",
     "raffle_current",
     "logo_url",
   ]);
@@ -31,8 +32,12 @@ export async function GET() {
     results_r1: "rangoli",
     live_r2: "dance",
     results_r2: "dance",
+    live_practice: "practice",
+    results_practice: "practice",
   };
   const round = roundOf[mode];
+  const isPractice = round === "practice";
+  payload.is_practice = isPractice;
 
   // select('*') keeps this working whether or not the optional
   // photo_screen_url column (v9 migration) exists yet.
@@ -44,7 +49,7 @@ export async function GET() {
   };
   const bestPhoto = (e: EntryRow) => e.photo_screen_url || e.photo_url || null;
 
-  if (mode === "live_r1" || mode === "live_r2") {
+  if (mode === "live_r1" || mode === "live_r2" || mode === "live_practice") {
     const { count } = await db()
       .from("votes")
       .select("id", { count: "exact", head: true })
@@ -56,20 +61,35 @@ export async function GET() {
 
     // Gallery for the live view: show the audience what they're voting on.
     // Names + photos only — never vote counts while voting runs.
-    const { data: galleryRows } = await db()
-      .from("entries")
-      .select("*")
-      .eq("round", round)
-      .eq("active", true)
-      .order("sort");
-    payload.gallery = ((galleryRows ?? []) as EntryRow[]).map((e) => ({
-      id: e.id,
-      name: e.name,
-      photo_url: bestPhoto(e),
-    }));
+    // (Practice questions show their options as text, no gallery.)
+    if (!isPractice) {
+      const { data: galleryRows } = await db()
+        .from("entries")
+        .select("*")
+        .eq("round", round)
+        .eq("active", true)
+        .order("sort");
+      payload.gallery = ((galleryRows ?? []) as EntryRow[]).map((e) => ({
+        id: e.id,
+        name: e.name,
+        photo_url: bestPhoto(e),
+      }));
+    } else {
+      const { data: optionRows } = await db()
+        .from("entries")
+        .select("id, name")
+        .eq("round", "practice")
+        .eq("active", true)
+        .order("sort");
+      payload.options = (optionRows ?? []).map((e) => e.name as string);
+    }
   }
 
-  if (mode === "results_r1" || mode === "results_r2") {
+  if (
+    mode === "results_r1" ||
+    mode === "results_r2" ||
+    mode === "results_practice"
+  ) {
     payload.round = round;
     const status = s[`${round}_status`];
     if (status === "revealed") {

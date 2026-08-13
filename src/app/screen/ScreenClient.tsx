@@ -24,6 +24,8 @@ type ScreenData = {
   round_status?: string;
   count?: number;
   gallery?: GalleryEntry[];
+  options?: string[];
+  is_practice?: boolean;
   results?: Result[] | null;
   raffle?: Raffle | null;
   logo_url?: string | null;
@@ -33,10 +35,17 @@ type ScreenData = {
 const ROUND_TITLE: Record<string, string> = {
   rangoli: "Rangoli Competition",
   dance: "Dance Competition",
+  practice: "Practice Question",
 };
-const ROUND_ICON: Record<string, string> = { rangoli: "🎨", dance: "💃" };
+const ROUND_ICON: Record<string, string> = {
+  rangoli: "🎨",
+  dance: "💃",
+  practice: "❓",
+};
 const MODE_LABEL: Record<string, string> = {
   idle: "Idle",
+  live_practice: "Live · Practice",
+  results_practice: "Results · Practice",
   live_r1: "Live · Rangoli",
   results_r1: "Results · Rangoli",
   live_r2: "Live · Dance",
@@ -143,20 +152,26 @@ export default function ScreenClient() {
 
       <AnimatePresence mode="wait">
         {data.mode === "idle" && <IdleView key="idle" logo={data.logo_url} />}
-        {(data.mode === "live_r1" || data.mode === "live_r2") && (
+        {(data.mode === "live_r1" ||
+          data.mode === "live_r2" ||
+          data.mode === "live_practice") && (
           <LiveView
             key={data.mode}
             round={data.round ?? ""}
             count={data.count ?? 0}
             roundStatus={data.round_status ?? "open"}
             gallery={data.gallery ?? []}
+            options={data.options ?? []}
           />
         )}
-        {(data.mode === "results_r1" || data.mode === "results_r2") && (
+        {(data.mode === "results_r1" ||
+          data.mode === "results_r2" ||
+          data.mode === "results_practice") && (
           <ResultsView
             key={data.mode}
             round={data.round ?? ""}
             results={data.results ?? null}
+            isPractice={!!data.is_practice}
           />
         )}
         {data.mode === "raffle" && (
@@ -266,11 +281,13 @@ function LiveView({
   count,
   roundStatus,
   gallery,
+  options,
 }: {
   round: string;
   count: number;
   roundStatus: string;
   gallery: GalleryEntry[];
+  options: string[];
 }) {
   const [display, setDisplay] = useState(count);
   const target = useRef(count);
@@ -326,6 +343,20 @@ function LiveView({
       <h1 className="gold-text font-display text-6xl font-extrabold md:text-7xl">
         {ROUND_ICON[round]} {ROUND_TITLE[round] ?? "Voting"}
       </h1>
+
+      {/* Practice: show the answer options so the hall can follow along */}
+      {round === "practice" && options.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {options.map((o) => (
+            <span
+              key={o}
+              className="rounded-2xl border border-brand-gold/30 bg-black/30 px-8 py-3 text-3xl font-bold text-brand-cream"
+            >
+              {o}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div
         className={`flex w-full items-center justify-center gap-10 ${
@@ -399,15 +430,22 @@ function LiveView({
 function ResultsView({
   round,
   results,
+  isPractice = false,
 }: {
   round: string;
   results: Result[] | null;
+  isPractice?: boolean;
 }) {
   const confettiFired = useRef(false);
   const sorted = results ? [...results].sort((a, b) => b.votes - a.votes) : [];
   // Handle ties: every entry sharing the top (non-zero) count is a winner
   const topVotes = sorted.length > 0 ? sorted[0].votes : 0;
-  const winners = topVotes > 0 ? sorted.filter((r) => r.votes === topVotes) : [];
+  // Practice = a quiz: the most popular answer is NOT necessarily correct,
+  // so no crown, no winner banner, no confetti. The MC announces the answer.
+  const winners =
+    topVotes > 0 && !isPractice
+      ? sorted.filter((r) => r.votes === topVotes)
+      : [];
   const isTie = winners.length > 1;
   const winnerIds = new Set(winners.map((r) => r.id));
   const max = Math.max(1, topVotes);
@@ -424,7 +462,7 @@ function ResultsView({
 
   // Depend on stable primitives, not the array reference — otherwise every
   // 2.5s poll would cancel the pending confetti timer before it fires.
-  const hasResults = !!results && results.length > 0;
+  const hasResults = !!results && results.length > 0 && !isPractice;
   useEffect(() => {
     if (hasResults && !confettiFired.current) {
       confettiFired.current = true;
@@ -456,9 +494,15 @@ function ResultsView({
       exit={{ opacity: 0 }}
       className="w-full max-w-6xl"
     >
-      <h1 className="gold-text mb-12 font-display text-6xl font-extrabold md:text-7xl">
+      <h1 className="gold-text mb-4 font-display text-6xl font-extrabold md:text-7xl">
         {ROUND_ICON[round]} {ROUND_TITLE[round] ?? ""} — Results
       </h1>
+      {isPractice && (
+        <p className="mb-8 text-3xl text-brand-cream/60">
+          Here&apos;s how the room voted…
+        </p>
+      )}
+      {!isPractice && <div className="mb-12" />}
       <div className="space-y-5">
         {display.map((r) => {
           const isWinner = winnerIds.has(r.id);

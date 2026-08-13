@@ -71,6 +71,14 @@ create table if not exists draws (
 alter table tokens  add column if not exists phone text;
 alter table entries add column if not exists photo_screen_url text;
 
+-- v11: allow the optional practice (warm-up quiz) round
+alter table votes   drop constraint if exists votes_round_check;
+alter table votes   add  constraint votes_round_check
+  check (round in ('rangoli','dance','practice'));
+alter table entries drop constraint if exists entries_round_check;
+alter table entries add  constraint entries_round_check
+  check (round in ('rangoli','dance','practice'));
+
 create index if not exists votes_round_idx on votes (round);
 create index if not exists votes_entry_idx on votes (round, entry_id);
 create index if not exists tokens_display_idx on tokens (display_code);
@@ -90,8 +98,9 @@ on conflict (id) do nothing;
 
 -- Default settings (only fills in missing keys)
 insert into settings (key, value) values
-  ('rangoli_status', 'locked'),
-  ('dance_status',   'locked'),
+  ('rangoli_status',  'locked'),
+  ('dance_status',    'locked'),
+  ('practice_status', 'locked'),
   ('screen_mode',    'idle'),
   ('raffle_pool',    'range'),
   ('active_ranges',  'KB-0001-KB-0800'),
