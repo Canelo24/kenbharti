@@ -98,8 +98,17 @@ export default function VoterClient({ slug }: { slug: string }) {
         const res = await fetch("/api/state", { cache: "no-store" });
         const fresh = await res.json();
         const cur = stateRef.current?.statuses;
-        if (!cur || fresh.rangoli !== cur.rangoli || fresh.dance !== cur.dance) {
+        // Compare ALL rounds, practice included — otherwise phones already
+        // sitting on this page never notice the warm-up opening, closing,
+        // or being re-opened for the next question.
+        const changed =
+          !cur ||
+          (["rangoli", "dance", "practice"] as Round[]).some(
+            (r) => fresh[r] !== cur[r]
+          );
+        if (changed) {
           setJustVoted(false);
+          setWasAlready(false);
           refresh();
         }
       } catch {
@@ -206,7 +215,11 @@ export default function VoterClient({ slug }: { slug: string }) {
 
   const openRound = state.open_round;
   const voted = state.voted ?? [];
-  const statuses = state.statuses ?? { rangoli: "locked", dance: "locked" };
+  const statuses = state.statuses ?? {
+    rangoli: "locked",
+    dance: "locked",
+    practice: "locked",
+  };
   const logo = state.logo_url;
 
   // ---------- BALLOT ----------

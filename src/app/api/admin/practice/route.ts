@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { setSetting } from "@/lib/settings";
+import { getSettings, setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -18,7 +18,12 @@ export async function POST() {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  // Back to locked so the next question starts from a clean state.
-  await setSetting("practice_status", "locked");
-  return NextResponse.json({ ok: true });
+  // Back to locked so the next question starts from a clean state. If a
+  // question is still live we leave it open rather than yanking the
+  // ballot out from under people mid-vote.
+  const current = (await getSettings(["practice_status"]))["practice_status"];
+  if (current !== "open") {
+    await setSetting("practice_status", "locked");
+  }
+  return NextResponse.json({ ok: true, still_open: current === "open" });
 }

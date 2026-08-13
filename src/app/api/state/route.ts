@@ -17,7 +17,7 @@ export async function GET() {
     });
   } catch (e) {
     return NextResponse.json(
-      { rangoli: "locked", dance: "locked" },
+      { rangoli: "locked", dance: "locked", practice: "locked" },
       { status: 200, headers: { "Cache-Control": "no-store" } }
     );
   }

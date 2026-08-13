@@ -110,6 +110,10 @@ export async function GET(req: NextRequest) {
       return ta.localeCompare(tb) || a.round.localeCompare(b.round);
     });
     for (const v of sortedVotes) {
+      // Warm-up quiz votes are not competition results, and their option
+      // names get renamed between questions — including them would put
+      // misleading rows in a dispute record.
+      if (v.round === "practice") continue;
       const t = tokenById.get(v.token_id);
       if (!t) continue;
       lines.push(

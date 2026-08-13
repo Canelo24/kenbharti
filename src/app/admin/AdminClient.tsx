@@ -611,7 +611,9 @@ function PracticeSection({
           onClick={async () => {
             if (
               !confirm(
-                "Clear the practice votes and start the next question?\n\nThis erases PRACTICE votes only — real Rangoli and Dance votes can never be touched by this button."
+                status === "open"
+                  ? "The practice question is still OPEN. Clearing now wipes the votes cast so far and people can vote again.\n\nUsually you want to press Close first. Continue anyway?"
+                  : "Clear the practice votes and start the next question?\n\nThis erases PRACTICE votes only — real Rangoli and Dance votes can never be touched by this button."
               )
             )
               return;

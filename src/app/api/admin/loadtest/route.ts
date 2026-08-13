@@ -70,9 +70,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Practice/warm-up votes don't count as "real votes already stored"
   const { count: existingVotes } = await db()
     .from("votes")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .neq("round", "practice");
   if ((existingVotes ?? 0) > 100) {
     return NextResponse.json(
       {

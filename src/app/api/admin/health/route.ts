@@ -17,6 +17,7 @@ type Check = {
 const REQUIRED_SETTINGS = [
   "rangoli_status",
   "dance_status",
+  "practice_status",
   "screen_mode",
   "raffle_pool",
   "active_ranges",
@@ -174,6 +175,45 @@ export async function GET(req: NextRequest) {
       ok: false,
       detail: e instanceof Error ? e.message : "check failed",
       fix: REPAIR_FIX,
+    });
+  }
+
+  // 4b. Practice round enabled? (v11 migration). Proven by actually
+  //     inserting a practice entry + vote, then removing them — so a
+  //     forgotten SQL step is caught here and not live on stage.
+  try {
+    const runId = crypto.randomUUID().slice(0, 8);
+    const { data: probeEntry, error: eErr } = await db()
+      .from("entries")
+      .insert({
+        round: "practice",
+        name: `__healthcheck__${runId}`,
+        active: false,
+        sort: 9999,
+      })
+      .select("id")
+      .single();
+    if (eErr || !probeEntry) {
+      checks.push({
+        name: "Practice round (warm-up quiz)",
+        ok: false,
+        detail: eErr?.message ?? "could not create a practice entry",
+        fix: "Run the v11 migration: Supabase → SQL Editor → paste supabase/migration-v11.sql → Run. (Not needed if you aren't using the warm-up quiz.)",
+      });
+    } else {
+      await db().from("entries").delete().eq("id", probeEntry.id);
+      checks.push({
+        name: "Practice round (warm-up quiz)",
+        ok: true,
+        detail: "enabled",
+      });
+    }
+  } catch (e) {
+    checks.push({
+      name: "Practice round (warm-up quiz)",
+      ok: false,
+      detail: e instanceof Error ? e.message : "check failed",
+      fix: "Run supabase/migration-v11.sql in the Supabase SQL Editor.",
     });
   }
 

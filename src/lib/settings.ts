@@ -7,7 +7,9 @@ export type RoundStatus = "locked" | "open" | "closed" | "revealed";
 export type Round = "rangoli" | "dance" | "practice";
 export type RealRound = "rangoli" | "dance";
 
-export const ROUNDS: Round[] = ["practice", "rangoli", "dance"];
+// Real rounds first: if two rounds were ever open at once, a voter must
+// be handed the REAL ballot, never the warm-up quiz.
+export const ROUNDS: Round[] = ["rangoli", "dance", "practice"];
 export const REAL_ROUNDS: RealRound[] = ["rangoli", "dance"];
 
 export const SCREEN_MODES = [
