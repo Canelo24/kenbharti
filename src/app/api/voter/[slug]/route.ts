@@ -33,7 +33,8 @@ export async function GET(
   }
 
   const statuses = await getRoundStatuses();
-  const logoUrl = (await getSettings(["logo_url"]))["logo_url"] ?? null;
+  const branding = await getSettings(["logo_url", "practice_question"]);
+  const logoUrl = branding["logo_url"] ?? null;
 
   // Best-effort: works whether or not the optional phone column exists,
   // so the voting flow can never depend on the v9 migration.
@@ -84,6 +85,7 @@ export async function GET(
       entries,
       logo_url: logoUrl,
       has_phone: hasPhone,
+      question: openRound === "practice" ? branding["practice_question"] ?? "" : "",
     },
     { headers: { "Cache-Control": "no-store" } }
   );

@@ -31,6 +31,7 @@ async function buildOverview() {
     "rangoli_status",
     "dance_status",
     "practice_status",
+    "practice_question",
     "screen_mode",
     "raffle_pool",
     "active_ranges",

@@ -17,6 +17,7 @@ type VoterState = {
   entries?: Entry[];
   logo_url?: string | null;
   has_phone?: boolean;
+  question?: string;
 };
 
 const ROUND_NO: Record<Round, string> = {
@@ -245,11 +246,19 @@ export default function VoterClient({ slug }: { slug: string }) {
               <p className="text-xs font-black uppercase tracking-[0.3em] text-brand-gold">
                 {ROUND_NO[openRound]} · voting open
               </p>
-              <h1 className="gold-text mt-1 font-display text-3xl font-extrabold">
-                {ROUND_ICON[openRound]} {ROUND_LABEL[openRound]}
-              </h1>
+              {openRound === "practice" && state.question ? (
+                <h1 className="mt-1 font-display text-2xl font-extrabold leading-snug text-brand-cream">
+                  {state.question}
+                </h1>
+              ) : (
+                <h1 className="gold-text mt-1 font-display text-3xl font-extrabold">
+                  {ROUND_ICON[openRound]} {ROUND_LABEL[openRound]}
+                </h1>
+              )}
               <p className="mt-1 text-sm text-white/60">
-                Tap your favourite, then confirm. One vote — final.
+                {openRound === "practice"
+                  ? "Pick your answer, then confirm."
+                  : "Tap your favourite, then confirm. One vote — final."}
               </p>
             </div>
             {voteError && (

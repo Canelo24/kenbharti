@@ -16,6 +16,7 @@ export async function GET() {
     "rangoli_status",
     "dance_status",
     "practice_status",
+    "practice_question",
     "raffle_current",
     "logo_url",
   ]);
@@ -38,6 +39,7 @@ export async function GET() {
   const round = roundOf[mode];
   const isPractice = round === "practice";
   payload.is_practice = isPractice;
+  if (isPractice) payload.question = s["practice_question"] ?? "";
 
   // select('*') keeps this working whether or not the optional
   // photo_screen_url column (v9 migration) exists yet.

@@ -511,6 +511,10 @@ function PracticeSection({
   const total = tallies.reduce((s, t) => s + t.votes, 0);
   const maxVotes = Math.max(1, ...tallies.map((t) => t.votes));
   const [clearing, setClearing] = useState(false);
+  const [savingQ, setSavingQ] = useState(false);
+  const [draftQ, setDraftQ] = useState<string | null>(null);
+  const savedQ = ov.settings["practice_question"] ?? "";
+  const questionValue = draftQ ?? savedQ;
 
   return (
     <section id="practice" className="card scroll-mt-32 border-blue-400/25">
@@ -519,6 +523,52 @@ function PracticeSection({
         title="Practice question (warm-up)"
         sub="Optional. Runs exactly like a real round but never counts as a result — and you can clear it and run it again for each question."
       />
+
+      {/* 1. The question text */}
+      <div className="mb-3 rounded-2xl border border-blue-400/25 bg-blue-500/5 p-4">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-blue-200/80">
+          Step 1 · The question
+        </p>
+        <textarea
+          className="input min-h-[72px] resize-y"
+          placeholder="e.g. What is the colour of the Ashoka Chakra on India's flag?"
+          value={questionValue}
+          onChange={(e) => setDraftQ(e.target.value)}
+        />
+        <button
+          className="btn-primary mt-2 w-full py-2 text-sm"
+          disabled={savingQ || questionValue.trim() === savedQ.trim()}
+          onClick={async () => {
+            setSavingQ(true);
+            try {
+              const res = await fetch("/api/admin/practice", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "set_question",
+                  question: questionValue.trim(),
+                }),
+              });
+              if (res.ok) {
+                setDraftQ(null);
+                showToast("✅ Question saved — it shows on phones & projector");
+                await refresh();
+              } else {
+                showToast("⚠️ Could not save the question");
+              }
+            } catch {
+              showToast("⚠️ Network problem");
+            } finally {
+              setSavingQ(false);
+            }
+          }}
+        >
+          {savingQ ? "⏳ Saving…" : "💾 Save question"}
+        </button>
+        <p className="mt-2 text-[11px] text-white/40">
+          Step 2 · Add the answer options in <b>Entries → ❓ Quiz</b> below.
+        </p>
+      </div>
 
       <div className="rounded-2xl border border-white/5 bg-black/25 p-4">
         <div className="flex items-center justify-between">
@@ -537,7 +587,12 @@ function PracticeSection({
         <div className="mt-3 grid grid-cols-3 gap-2">
           <button
             className="btn-primary py-2.5 text-sm"
-            disabled={busy || status !== "locked" || options.length < 2}
+            disabled={
+              busy ||
+              status !== "locked" ||
+              options.length < 2 ||
+              !savedQ.trim()
+            }
             onClick={async () => {
               if (
                 await post("/api/admin/round", {
@@ -573,10 +628,15 @@ function PracticeSection({
           </button>
         </div>
 
-        {options.length < 2 && (
+        {(options.length < 2 || !savedQ.trim()) && (
           <p className="mt-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-200">
-            Add the answer options below (e.g. Blue / White / Red) before
-            opening.
+            Before you can open:{" "}
+            {!savedQ.trim() && <b>type &amp; save the question above</b>}
+            {!savedQ.trim() && options.length < 2 && " · "}
+            {options.length < 2 && (
+              <b>add at least 2 answer options in Entries → ❓ Quiz</b>
+            )}
+            .
           </p>
         )}
 

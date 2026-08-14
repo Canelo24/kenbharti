@@ -26,6 +26,7 @@ type ScreenData = {
   gallery?: GalleryEntry[];
   options?: string[];
   is_practice?: boolean;
+  question?: string;
   results?: Result[] | null;
   raffle?: Raffle | null;
   logo_url?: string | null;
@@ -162,6 +163,7 @@ export default function ScreenClient() {
             roundStatus={data.round_status ?? "open"}
             gallery={data.gallery ?? []}
             options={data.options ?? []}
+            question={data.question ?? ""}
           />
         )}
         {(data.mode === "results_r1" ||
@@ -172,6 +174,7 @@ export default function ScreenClient() {
             round={data.round ?? ""}
             results={data.results ?? null}
             isPractice={!!data.is_practice}
+            question={data.question ?? ""}
           />
         )}
         {data.mode === "raffle" && (
@@ -282,12 +285,14 @@ function LiveView({
   roundStatus,
   gallery,
   options,
+  question,
 }: {
   round: string;
   count: number;
   roundStatus: string;
   gallery: GalleryEntry[];
   options: string[];
+  question: string;
 }) {
   const [display, setDisplay] = useState(count);
   const target = useRef(count);
@@ -340,9 +345,15 @@ function LiveView({
           </p>
         </div>
       )}
-      <h1 className="gold-text font-display text-6xl font-extrabold md:text-7xl">
-        {ROUND_ICON[round]} {ROUND_TITLE[round] ?? "Voting"}
-      </h1>
+      {round === "practice" && question ? (
+        <h1 className="max-w-5xl font-display text-5xl font-extrabold leading-snug text-brand-cream md:text-6xl">
+          {question}
+        </h1>
+      ) : (
+        <h1 className="gold-text font-display text-6xl font-extrabold md:text-7xl">
+          {ROUND_ICON[round]} {ROUND_TITLE[round] ?? "Voting"}
+        </h1>
+      )}
 
       {/* Practice: show the answer options so the hall can follow along */}
       {round === "practice" && options.length > 0 && (
@@ -431,10 +442,12 @@ function ResultsView({
   round,
   results,
   isPractice = false,
+  question = "",
 }: {
   round: string;
   results: Result[] | null;
   isPractice?: boolean;
+  question?: string;
 }) {
   const confettiFired = useRef(false);
   const sorted = results ? [...results].sort((a, b) => b.votes - a.votes) : [];
@@ -494,9 +507,15 @@ function ResultsView({
       exit={{ opacity: 0 }}
       className="w-full max-w-6xl"
     >
-      <h1 className="gold-text mb-4 font-display text-6xl font-extrabold md:text-7xl">
-        {ROUND_ICON[round]} {ROUND_TITLE[round] ?? ""} — Results
-      </h1>
+      {isPractice && question ? (
+        <h1 className="mb-3 font-display text-5xl font-extrabold leading-snug text-brand-cream md:text-6xl">
+          {question}
+        </h1>
+      ) : (
+        <h1 className="gold-text mb-4 font-display text-6xl font-extrabold md:text-7xl">
+          {ROUND_ICON[round]} {ROUND_TITLE[round] ?? ""} — Results
+        </h1>
+      )}
       {isPractice && (
         <p className="mb-8 text-3xl text-brand-cream/60">
           Here&apos;s how the room voted…
