@@ -350,8 +350,9 @@ function LiveView({
           {question}
         </h1>
       ) : (
-        <h1 className="gold-text font-display text-6xl font-extrabold md:text-7xl">
-          {ROUND_ICON[round]} {ROUND_TITLE[round] ?? "Voting"}
+        <h1 className="flex items-center justify-center gap-4 font-display text-6xl font-extrabold leading-[1.15] md:text-7xl">
+          <span aria-hidden className="leading-none">{ROUND_ICON[round]}</span>
+          <span className="gold-text py-1">{ROUND_TITLE[round] ?? "Voting"}</span>
         </h1>
       )}
 
@@ -487,7 +488,7 @@ function ResultsView({
   if (!results) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        <h1 className="text-6xl font-black text-brand-saffron">
+        <h1 className="text-5xl font-black text-brand-saffron">
           {ROUND_ICON[round]} {ROUND_TITLE[round] ?? ""}
         </h1>
         <p className="kb-pulse mt-10 text-5xl font-bold text-white/80">
@@ -505,29 +506,34 @@ function ResultsView({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="w-full max-w-6xl"
+      // Starts below the corner logo and never taller than the screen,
+      // however many entries a round has.
+      className="mt-28 w-full max-w-[88vw] xl:max-w-6xl"
     >
       {isPractice && question ? (
-        <h1 className="mb-3 font-display text-5xl font-extrabold leading-snug text-brand-cream md:text-6xl">
+        <h1 className="mb-2 font-display text-4xl font-extrabold leading-snug text-brand-cream md:text-5xl">
           {question}
         </h1>
       ) : (
-        <h1 className="gold-text mb-4 font-display text-6xl font-extrabold md:text-7xl">
-          {ROUND_ICON[round]} {ROUND_TITLE[round] ?? ""} — Results
+        <h1 className="mb-2 flex items-center justify-center gap-3 font-display text-4xl font-extrabold leading-[1.15] md:text-5xl">
+          <span aria-hidden className="leading-none">{ROUND_ICON[round]}</span>
+          <span className="gold-text py-1">
+            {ROUND_TITLE[round] ?? ""} — Results
+          </span>
         </h1>
       )}
       {isPractice && (
-        <p className="mb-8 text-3xl text-brand-cream/60">
+        <p className="mb-5 text-2xl text-brand-cream/60">
           Here&apos;s how the room voted…
         </p>
       )}
-      {!isPractice && <div className="mb-12" />}
-      <div className="space-y-5">
+      {!isPractice && <div className="mb-6" />}
+      <div className="space-y-3">
         {display.map((r) => {
           const isWinner = winnerIds.has(r.id);
           const delay = delayFor.get(r.id) ?? 0;
           return (
-            <div key={r.id} className="flex items-center gap-5 text-left">
+            <div key={r.id} className="flex items-center gap-4 text-left">
               {r.photo_url ? (
                 <motion.img
                   src={r.photo_url}
@@ -535,22 +541,22 @@ function ResultsView({
                   initial={{ opacity: 0.35 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay }}
-                  className={`h-16 w-16 flex-none rounded-xl border object-cover ${
+                  className={`h-14 w-14 flex-none rounded-xl border object-cover ${
                     isWinner ? "border-brand-gold" : "border-white/15"
                   }`}
                 />
               ) : (
-                <div className="h-16 w-16 flex-none rounded-xl border border-white/10 bg-white/5" />
+                <div className="h-14 w-14 flex-none rounded-xl border border-white/10 bg-white/5" />
               )}
               <span
-                className={`w-64 truncate text-4xl font-bold md:w-80 ${
+                className={`w-52 truncate text-2xl font-bold md:w-72 md:text-3xl ${
                   isWinner ? "text-brand-gold" : "text-brand-cream"
                 }`}
               >
                 {isWinner && "👑 "}
                 {r.name}
               </span>
-              <div className="h-14 flex-1 overflow-hidden rounded-2xl bg-white/10 shadow-inner">
+              <div className="h-11 flex-1 overflow-hidden rounded-2xl bg-white/10 shadow-inner">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${(r.votes / max) * 100}%` }}
@@ -566,7 +572,7 @@ function ResultsView({
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: delay + 0.7 }}
-                className="w-28 text-right text-5xl font-black tabular-nums"
+                className="w-24 text-right text-3xl font-black tabular-nums md:text-4xl"
               >
                 {r.votes}
               </motion.span>
@@ -579,9 +585,9 @@ function ResultsView({
           initial={{ opacity: 0, y: 40, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: revealSeconds + 0.3, type: "spring", bounce: 0.4 }}
-          className="mt-14 inline-block rounded-3xl border-2 border-brand-gold/60 bg-gradient-to-r from-brand-gold/20 to-brand-saffron/10 px-16 py-6"
+          className="mt-8 inline-block max-w-full rounded-3xl border-2 border-brand-gold/60 bg-gradient-to-r from-brand-gold/20 to-brand-saffron/10 px-10 py-4"
         >
-          <p className="font-display text-6xl font-extrabold text-brand-gold md:text-7xl">
+          <p className="font-display text-4xl font-extrabold leading-[1.2] text-brand-gold md:text-5xl">
             🏆 {isTie ? "It's a tie! " : ""}
             {winners.map((w) => w.name).join(" & ")} 🏆
           </p>
@@ -645,9 +651,13 @@ function RaffleView({ raffle }: { raffle: Raffle | null }) {
       )}
       {raffle && (
         <>
-          <h1 className="gold-text font-display text-7xl font-extrabold md:text-8xl">
-            {raffle.prize_name.toLowerCase().includes("flight") ? "✈️" : "🧺"}{" "}
-            {raffle.prize_name}
+          {/* Emoji sits OUTSIDE the gradient span — emoji glyphs get
+              clipped by bg-clip-text, which cut the plane's outline off. */}
+          <h1 className="flex flex-wrap items-center justify-center gap-4 font-display text-6xl font-extrabold leading-[1.15] md:text-7xl">
+            <span aria-hidden className="leading-none">
+              {raffle.prize_name.toLowerCase().includes("flight") ? "✈️" : "🧺"}
+            </span>
+            <span className="gold-text py-1">{raffle.prize_name}</span>
           </h1>
           <div
             className={`rounded-[2.5rem] border-4 bg-black/50 px-20 py-12 shadow-2xl transition-colors ${
@@ -690,7 +700,7 @@ function RaffleView({ raffle }: { raffle: Raffle | null }) {
               animate={{ opacity: 1, y: 0 }}
               className="text-5xl font-bold text-brand-gold"
             >
-              🎉 Come up to the stage! 🎉
+              🎉 Congratulations! 🎉
             </motion.p>
           )}
         </>
